@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "4eabc66183767153e404b39d1b839b1c37f2d82d86f0a0d7e880a579d8d62336"
+    },
+    "speech-to-text": {
+      "source": "sarvamai/skills",
+      "sourceType": "github",
+      "skillPath": "speech-to-text/SKILL.md",
+      "computedHash": "72ed0be9c55b685ccc1dbbec95a61091aa610aa095574d1a11224cd6150b853b"
+    },
+    "text-to-speech": {
+      "source": "sarvamai/skills",
+      "sourceType": "github",
+      "skillPath": "text-to-speech/SKILL.md",
+      "computedHash": "e357293e3a79e8039f0a1618a11e73303f8917c8533178a8139d5dc266331b12"
+    },
+    "voice-agents": {
+      "source": "sarvamai/skills",
+      "sourceType": "github",
+      "skillPath": "voice-agents/SKILL.md",
+      "computedHash": "7ee4cc8de0ce89a32d0bedc2a637641ef83ad71360ebed103dad2e5ff1826927"
+    }
+  }
+}

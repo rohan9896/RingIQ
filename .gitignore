@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# BMad runtime/user state
+_bmad-output/
+_bmad/config.user.toml
+_bmad/_memory/
+
+# BMad Builder reports are disposable build artifacts
+skills/reports/
+
+/.agents
+.claude
