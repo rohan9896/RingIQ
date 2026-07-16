@@ -7,9 +7,17 @@ name = "ringiq"
 version = "0.1.0"
 description = "RingIQ is a B2B AI voice platform that automatically calls, qualifies, and prioritizes leads using each business's private knowledge base."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "RingIQ" }]
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "livekit-api>=1.0,<2.0",
+  "livekit-agents[deepgram,groq,sarvam,silero]~=1.5",
+  "pydantic-settings>=2.4,<3.0",
+  "python-dotenv>=1.0,<2.0",
+  "uvicorn[standard]>=0.30,<1.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ringiq"]

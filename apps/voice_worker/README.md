@@ -14,3 +14,9 @@ Planned responsibilities:
 
 This worker should receive only the call context needed for one active call. It should not become a general-purpose backend.
 
+## Demo command
+
+```bash
+uv run python -m apps.voice_worker.agent dev
+```
+
