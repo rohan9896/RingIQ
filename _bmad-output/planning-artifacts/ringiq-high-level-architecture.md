@@ -62,15 +62,15 @@ flowchart TD
     Backend --> TenantData[(Tenant-Isolated App Data)]
     Backend --> ObjectStorage[(Recordings + Transcript Storage)]
     Backend --> KB[Knowledge Base Q&A Intake]
-    KB --> RetrievalIndex[(Tenant Retrieval Index)]
+    KB --> RetrievalIndex[(Postgres + pgvector Tenant Retrieval Index)]
 
     Backend --> Campaign[Campaign Orchestrator]
-    Campaign --> Vobiz[Vobiz Telephony]
+    Campaign --> Vobiz[Vobiz Telephony via SIP]
     Vobiz --> LeadPhone[Lead Phone Call]
     Vobiz --> LiveKit[LiveKit Real-Time Session Layer]
 
     LiveKit --> VoiceWorker[Voice AI Worker]
-    VoiceWorker --> Deepgram[Deepgram STT]
+    VoiceWorker --> Deepgram[Deepgram Flux STT]
     VoiceWorker --> Retrieval[Retrieval Layer]
     Retrieval --> RetrievalIndex
     VoiceWorker --> Groq[Groq LLM Orchestration]
@@ -89,13 +89,13 @@ flowchart TD
 | RingIQ Backend API | Owns product logic, tenant authorization checks, lead management, campaign state, call lifecycle records, dashboard data, and integration coordination. |
 | Tenant-Isolated App Data | Stores tenant-scoped entities such as leads, campaigns, users, call attempts, lead status, classifications, summaries, and audit logs. |
 | Knowledge Base Q&A Intake | Category-specific form used by tenants to provide structured business knowledge. Real estate is the first supported category. |
-| Tenant Retrieval Index | Tenant-scoped searchable index created from Q&A answers and optional additional knowledge data. |
+| Tenant Retrieval Index | Tenant-scoped searchable index created from Q&A answers and optional additional knowledge data, stored in Postgres with pgvector. |
 | Campaign Orchestrator | Schedules call attempts, applies retry rules, tracks call states, and triggers outbound calling through telephony integration. |
-| Vobiz Telephony | Planned outbound telephony provider for placing calls, receiving call status updates, and connecting call media into the real-time voice stack. |
+| Vobiz Telephony | Planned outbound telephony provider for placing calls through SIP, receiving call status updates, and connecting call media into the real-time voice stack. |
 | LiveKit Real-Time Session Layer | Real-time media/session layer for voice-agent calls, including audio flow between telephony and the AI worker. |
 | Voice AI Worker | Runtime process that coordinates STT, retrieval, LLM reasoning, TTS, call state, classification, and event logging during a live call. |
-| Deepgram STT | Speech-to-text provider for transcribing lead speech, with Nova-3 or Flux to be validated for Hindi, English, and code-switching quality. |
-| Groq LLM Orchestration | LLM inference provider. `llama-3.3-70b-versatile` is the baseline model; alternatives can be benchmarked later. |
+| Deepgram Flux STT | Speech-to-text provider for transcribing lead speech during real-time conversational calls. Flux is selected for v1 because it is oriented toward conversational voice agents. |
+| Groq LLM Orchestration | LLM inference provider. `llama-3.3-70b-versatile` is selected for v1 orchestration. |
 | Sarvam AI TTS | Text-to-speech provider for natural Indian-language voice output, using Sarvam's Bulbul v3 family. |
 | Dashboard + Lead Follow-Up Queue | Tenant-facing view of interested leads, callback requests, summaries, transcripts, recordings, and knowledge gaps. |
 
@@ -107,7 +107,7 @@ flowchart TD
 4. RingIQ creates tenant-scoped knowledge chunks and updates the tenant retrieval index.
 5. Tenant configures and launches a campaign.
 6. Campaign Orchestrator selects eligible leads and initiates outbound calls through Vobiz.
-7. Vobiz places the call and connects the live call session to LiveKit.
+7. Vobiz places the call through SIP and connects the live call session to LiveKit.
 8. Voice AI Worker joins the LiveKit session.
 9. Deepgram transcribes the lead's speech.
 10. Retrieval Layer fetches relevant tenant knowledge for the current conversation turn.
@@ -160,11 +160,12 @@ LangGraph is not required for v1 unless the call orchestration becomes meaningfu
 | Area | Planned Choice | Notes |
 | --- | --- | --- |
 | Auth | Clerk | Use Clerk Organizations for tenant workspaces. RingIQ backend still owns tenant authorization for product data. |
-| Telephony | Vobiz | Planned provider. Validate outbound calling APIs, call status callbacks, SIP/media bridge options, recording support, and India-specific telephony constraints. |
+| Telephony | Vobiz over SIP | Planned provider and integration path. Vobiz will connect into the real-time call stack through SIP. |
 | Real-Time Voice Session | LiveKit | Use as the real-time media/session layer between telephony and the AI voice worker. |
-| STT | Deepgram Nova-3 or Flux | Prefer Nova-3 or Flux over Nova-2 conversational AI for Hindi/English support. Validate accuracy on Indian phone audio and Hindi-English code-switching. |
-| LLM | Groq `llama-3.3-70b-versatile` | Good baseline for low-latency orchestration. Benchmark against alternatives such as Groq-hosted `openai/gpt-oss-120b` if quality or reasoning depth becomes a concern. |
+| STT | Deepgram Flux | Selected for v1 because it is better aligned with conversational voice-agent use cases. |
+| LLM | Groq `llama-3.3-70b-versatile` | Selected for v1. No further model validation is required for now. |
 | TTS | Sarvam AI Bulbul v3 | Validate voice quality, streaming latency, Hindi/English pronunciation, Hinglish handling, and telephony audio quality. |
+| RAG Storage | Postgres with pgvector | Use Postgres with pgvector for tenant-scoped retrieval. Detailed schema will be finalized later. |
 | RAG Orchestration | Simple retrieval layer first | Chunk tenant Q&A and additional knowledge, retrieve relevant context per turn, defer LangGraph unless workflow complexity demands it. |
 
 ## 10. Key Product Data Groups
@@ -189,19 +190,23 @@ At a high level, RingIQ will manage these product data groups:
 
 Detailed schemas will be defined in the detailed architecture phase.
 
-## 11. Open Architecture Decisions
+## 11. Architecture Decisions and Open Items
+
+### Resolved for v1
 
 1. Vobiz integration path.
-   Confirm whether Vobiz will connect through SIP, direct outbound call APIs, media streaming, webhooks, or a combination.
+   Use SIP.
 
 2. STT model selection.
-   Run call-quality tests comparing Deepgram Nova-3 and Flux for Hindi, English, Hinglish, and noisy phone audio.
+   Use Deepgram Flux.
 
-3. LLM benchmark.
-   Validate Groq `llama-3.3-70b-versatile` for latency, instruction following, classification accuracy, and grounded conversation quality.
+3. LLM model.
+   Use Groq `llama-3.3-70b-versatile` for now. No additional model validation is required before architecture proceeds.
 
-4. Retrieval index choice.
-   Decide the vector store or managed retrieval backend during detailed architecture.
+4. Retrieval storage.
+   Use Postgres with pgvector. Detailed schema will be finalized later in the architecture plan.
+
+### Deferred / Still Open
 
 5. Knowledge base Q&A definition.
    Define the first real-estate Q&A template, required fields, optional fields, and minimum completeness rules for campaign launch.
@@ -210,7 +215,7 @@ Detailed schemas will be defined in the detailed architecture phase.
    Data is retained indefinitely for now, but storage cost and lifecycle policy should be revisited before production scale.
 
 7. Callback date/time handling.
-   Define how callback requests are normalized, displayed, and validated across time zones.
+   Needs discussion. Define how callback requests are normalized, displayed, and validated across time zones.
 
 8. Observability.
    Define the minimum events and metrics needed for call debugging, tenant reporting, AI quality review, and provider reliability tracking.
@@ -226,4 +231,4 @@ Provider and capability assumptions were checked against the following public do
 - Sarvam documentation index: https://docs.sarvam.ai/llms.txt
 - Sarvam LiveKit voice agent guide: https://docs.sarvam.ai/api/integration/build-voice-agent-with-live-kit
 
-Vobiz remains a planned telephony provider and still needs direct integration validation.
+Vobiz remains the planned telephony provider, with SIP selected as the integration path.
