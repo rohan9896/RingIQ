@@ -10,7 +10,7 @@ build/
 *.egg-info/
 
 # BMad runtime/user state
-_bmad-output/
+# _bmad-output/
 _bmad/config.user.toml
 _bmad/_memory/
 
@@ -19,3 +19,5 @@ skills/reports/
 
 /.agents
 .claude
+
+.env
