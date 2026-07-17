@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -13,6 +14,22 @@ load_dotenv()
 
 logger = logging.getLogger("ringiq.voice_worker")
 DEFAULT_API_BASE_URL = "http://127.0.0.1:8000"
+
+
+def _csv_env(name: str, default: str) -> list[str]:
+    value = os.getenv(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _metrics_metadata(metrics: dict[str, Any]) -> dict[str, str]:
+    return {key: str(value) for key, value in metrics.items() if value is not None}
 
 
 def _metadata(ctx: JobContext) -> dict[str, Any]:
@@ -88,18 +105,33 @@ async def entrypoint(ctx: JobContext) -> None:
         extra_metadata={"agent_name": os.getenv("LIVEKIT_AGENT_NAME", "ringiq-demo-agent")},
     )
 
-    deepgram_model = os.getenv("DEEPGRAM_MODEL", "flux-general-en")
-    groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    deepgram_model = os.getenv("DEEPGRAM_MODEL", "flux-general-multi")
+    deepgram_language_hints = _csv_env("DEEPGRAM_LANGUAGE_HINTS", "en,hi")
+    deepgram_eager_eot_threshold = float(os.getenv("DEEPGRAM_EAGER_EOT_THRESHOLD", "0.4"))
+    deepgram_eot_threshold = float(os.getenv("DEEPGRAM_EOT_THRESHOLD", "0.65"))
+    deepgram_eot_timeout_ms = int(os.getenv("DEEPGRAM_EOT_TIMEOUT_MS", "2000"))
+    groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
     sarvam_model = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3")
     sarvam_speaker = os.getenv("SARVAM_TTS_SPEAKER", "shubh").strip().lower()
     sarvam_language = os.getenv("SARVAM_TARGET_LANGUAGE_CODE", "hi-IN")
+    sarvam_sample_rate = int(os.getenv("SARVAM_TTS_SAMPLE_RATE", "16000"))
+    sarvam_min_buffer_size = int(os.getenv("SARVAM_TTS_MIN_BUFFER_SIZE", "30"))
+    sarvam_max_chunk_length = int(os.getenv("SARVAM_TTS_MAX_CHUNK_LENGTH", "100"))
+    sarvam_output_audio_codec = os.getenv("SARVAM_TTS_OUTPUT_AUDIO_CODEC", "linear16")
+    preemptive_tts = _bool_env("LIVEKIT_PREEMPTIVE_TTS", True)
 
     await _emit_pipeline_event(
         metadata,
         stage="stt_configured",
         provider="Deepgram",
         message="STT configured",
-        extra_metadata={"model": deepgram_model},
+        extra_metadata={
+            "model": deepgram_model,
+            "language_hints": ",".join(deepgram_language_hints),
+            "eager_eot_threshold": str(deepgram_eager_eot_threshold),
+            "eot_threshold": str(deepgram_eot_threshold),
+            "eot_timeout_ms": str(deepgram_eot_timeout_ms),
+        },
     )
     await _emit_pipeline_event(
         metadata,
@@ -113,15 +145,33 @@ async def entrypoint(ctx: JobContext) -> None:
         stage="tts_configured",
         provider="Sarvam",
         message="TTS configured",
-        extra_metadata={"model": sarvam_model, "speaker": sarvam_speaker, "language": sarvam_language},
+        extra_metadata={
+            "model": sarvam_model,
+            "speaker": sarvam_speaker,
+            "language": sarvam_language,
+            "sample_rate": str(sarvam_sample_rate),
+            "min_buffer_size": str(sarvam_min_buffer_size),
+            "max_chunk_length": str(sarvam_max_chunk_length),
+            "output_audio_codec": sarvam_output_audio_codec,
+        },
     )
 
     session = AgentSession(
         vad=silero.VAD.load(),
-        turn_handling=TurnHandlingOptions(turn_detection="stt"),
+        turn_handling=TurnHandlingOptions(
+            turn_detection="stt",
+            preemptive_generation={
+                "enabled": True,
+                "preemptive_tts": preemptive_tts,
+                "max_retries": 2,
+            },
+        ),
         stt=deepgram.STTv2(
             model=deepgram_model,
-            eager_eot_threshold=float(os.getenv("DEEPGRAM_EAGER_EOT_THRESHOLD", "0.4")),
+            eager_eot_threshold=deepgram_eager_eot_threshold,
+            language_hint=deepgram_language_hints,
+            eot_threshold=deepgram_eot_threshold,
+            eot_timeout_ms=deepgram_eot_timeout_ms,
         ),
         llm=groq.LLM(
             model=groq_model,
@@ -131,10 +181,52 @@ async def entrypoint(ctx: JobContext) -> None:
             target_language_code=sarvam_language,
             model=sarvam_model,
             speaker=sarvam_speaker,
-            speech_sample_rate=int(os.getenv("SARVAM_TTS_SAMPLE_RATE", "22050")),
+            speech_sample_rate=sarvam_sample_rate,
             pace=float(os.getenv("SARVAM_TTS_PACE", "1.0")),
+            min_buffer_size=sarvam_min_buffer_size,
+            max_chunk_length=sarvam_max_chunk_length,
+            output_audio_codec=sarvam_output_audio_codec,
         ),
     )
+
+    @session.on("conversation_item_added")
+    def _log_turn_latency(event: Any) -> None:
+        item = getattr(event, "item", None)
+        role = getattr(item, "role", None)
+        metrics = getattr(item, "metrics", None) or {}
+        if role not in {"user", "assistant"} or not metrics:
+            return
+
+        if role == "user":
+            latency_metrics = {
+                "transcription_delay": metrics.get("transcription_delay"),
+                "end_of_turn_delay": metrics.get("end_of_turn_delay"),
+                "on_user_turn_completed_delay": metrics.get("on_user_turn_completed_delay"),
+            }
+            provider = "Deepgram"
+        else:
+            latency_metrics = {
+                "llm_node_ttft": metrics.get("llm_node_ttft"),
+                "tts_node_ttfb": metrics.get("tts_node_ttfb"),
+                "playback_latency": metrics.get("playback_latency"),
+                "e2e_latency": metrics.get("e2e_latency"),
+            }
+            provider = "LiveKit Agents"
+
+        latency_metrics = {key: value for key, value in latency_metrics.items() if value is not None}
+        if not latency_metrics:
+            return
+
+        logger.info("voice_turn_latency role=%s metrics=%s", role, latency_metrics)
+        asyncio.create_task(
+            _emit_pipeline_event(
+                metadata,
+                stage=f"{role}_turn_latency",
+                provider=provider,
+                message=f"{role.title()} turn latency metrics collected",
+                extra_metadata=_metrics_metadata(latency_metrics),
+            )
+        )
 
     await session.start(
         room=ctx.room,
