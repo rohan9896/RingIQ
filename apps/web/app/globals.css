@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --background: #f7f6f2;
+  --foreground: #171714;
+  --muted: #6d6b64;
+  --border: #d8d5cc;
+  --panel: #fffefa;
+  --accent: #d73a2f;
+  --accent-strong: #b72c24;
+  --indigo: #2f4e6f;
+  --moss: #66735b;
+  --warning: #9a6517;
+  --danger: #b72c24;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP",
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+a:not([class]) {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: #d73a2f;
+  color: #fffefa;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.utility-label {
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.paper-grid {
+  background-image:
+    linear-gradient(to right, rgb(23 23 20 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(23 23 20 / 0.045) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.voice-line {
+  animation: voice-rise 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.voice-line:nth-child(2n) {
+  animation-delay: 120ms;
+}
+
+.voice-line:nth-child(3n) {
+  animation-delay: 240ms;
+}
+
+@keyframes voice-rise {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-line {
+    animation: none;
+  }
+}
