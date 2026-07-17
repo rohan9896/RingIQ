@@ -7,11 +7,11 @@ from starlette.requests import Request
 
 from apps.api.ringiq_api.auth import clerk as clerk_module
 from apps.api.ringiq_api.auth.clerk import (
-    ActiveOrganizationRequired,
     ClerkAuthenticationRejected,
     ClerkAuthenticator,
     ClerkPrincipal,
     require_clerk_principal,
+    require_tenant_principal,
 )
 from tests.api.helpers import make_settings
 
@@ -103,7 +103,7 @@ def test_authenticator_rejects_invalid_session(monkeypatch: pytest.MonkeyPatch) 
     assert exc_info.value.reason == "TOKEN_INVALID"
 
 
-def test_authenticator_requires_active_organization(
+def test_authenticator_allows_organizationless_platform_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -116,8 +116,9 @@ def test_authenticator_requires_active_organization(
         ),
     )
 
-    with pytest.raises(ActiveOrganizationRequired):
-        ClerkAuthenticator(make_settings()).authenticate(make_request())
+    principal = ClerkAuthenticator(make_settings()).authenticate(make_request())
+
+    assert principal.organization_id is None
 
 
 @pytest.mark.parametrize("payload", [None, [], "not-a-payload"])
@@ -151,13 +152,11 @@ async def test_auth_dependency_maps_rejection_to_401() -> None:
 
 
 @pytest.mark.asyncio
-async def test_auth_dependency_maps_missing_org_to_403() -> None:
-    class OrganizationlessAuthenticator:
-        def authenticate(self, request: Request) -> ClerkPrincipal:
-            raise ActiveOrganizationRequired
-
+async def test_tenant_dependency_maps_missing_org_to_403() -> None:
     with pytest.raises(HTTPException) as exc_info:
-        await require_clerk_principal(make_request(), OrganizationlessAuthenticator())
+        await require_tenant_principal(
+            ClerkPrincipal(user_id="user_1", organization_id=None)
+        )
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "active_organization_required"

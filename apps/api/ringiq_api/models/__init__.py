@@ -1,3 +1,9 @@
-from apps.api.ringiq_api.models.identity import Tenant, TenantMembership, User
+from apps.api.ringiq_api.models.identity import (
+    PlatformRole,
+    Tenant,
+    TenantMembership,
+    User,
+    UserRealm,
+)
 
-__all__ = ["Tenant", "TenantMembership", "User"]
+__all__ = ["PlatformRole", "Tenant", "TenantMembership", "User", "UserRealm"]

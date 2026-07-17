@@ -14,7 +14,7 @@ logger = logging.getLogger("ringiq.api.auth")
 @dataclass(frozen=True)
 class ClerkPrincipal:
     user_id: str
-    organization_id: str
+    organization_id: str | None
     session_id: str | None = None
     organization_role: str | None = None
 
@@ -23,10 +23,6 @@ class ClerkAuthenticationRejected(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
-
-
-class ActiveOrganizationRequired(Exception):
-    pass
 
 
 class ClerkAuthenticator:
@@ -59,7 +55,7 @@ class ClerkAuthenticator:
         if not organization_id and isinstance(organization_claim, Mapping):
             organization_id = organization_claim.get("id")
         if not isinstance(organization_id, str) or not organization_id:
-            raise ActiveOrganizationRequired
+            organization_id = None
 
         organization_role = payload.get("org_role")
         if not organization_role and isinstance(organization_claim, Mapping):
@@ -95,9 +91,14 @@ async def require_clerk_principal(
             detail="unauthorized",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
-    except ActiveOrganizationRequired as exc:
-        logger.info("clerk_auth.active_organization_required path=%s", request.url.path)
+
+
+async def require_tenant_principal(
+    principal: ClerkPrincipal = Depends(require_clerk_principal),
+) -> ClerkPrincipal:
+    if principal.organization_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="active_organization_required",
-        ) from exc
+        )
+    return principal

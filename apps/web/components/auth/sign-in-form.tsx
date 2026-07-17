@@ -10,7 +10,17 @@ import { navigateWithClerk } from "@/lib/clerk-navigation";
 
 type VerificationStrategy = "email_code" | "phone_code" | "totp" | "backup_code";
 
-export function SignInForm() {
+type SignInFormProps = {
+  destination?: string;
+  organizationTaskDestination?: string;
+  submitLabel?: string;
+};
+
+export function SignInForm({
+  destination = "/dashboard",
+  organizationTaskDestination = "/workspace/setup",
+  submitLabel = "Sign in",
+}: SignInFormProps) {
   const router = useRouter();
   const { signIn, errors, fetchStatus } = useSignIn();
   const [localError, setLocalError] = useState<string | null>(null);
@@ -59,10 +69,10 @@ export function SignInForm() {
   async function finalizeSignIn() {
     const result = await signIn.finalize({
       navigate: ({ session, decorateUrl }) => {
-        const destination = session.currentTask?.key === "choose-organization"
-          ? "/workspace/setup"
-          : "/dashboard";
-        return navigateWithClerk(decorateUrl(destination), router);
+        const nextDestination = session.currentTask?.key === "choose-organization"
+          ? organizationTaskDestination
+          : destination;
+        return navigateWithClerk(decorateUrl(nextDestination), router);
       },
     });
     if (result.error) setLocalError(result.error.message);
@@ -216,7 +226,7 @@ export function SignInForm() {
         type="submit"
       >
         {isLoading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-        Sign in
+        {submitLabel}
       </button>
     </form>
   );

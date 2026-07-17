@@ -80,3 +80,30 @@ docs/             Implementation-facing documentation
 ```
 
 Planning artifacts are stored in `_bmad-output/planning-artifacts`.
+
+## Platform Console
+
+RingIQ internal users sign in through the separate platform entrance:
+
+```text
+http://localhost:3000/platform/sign-in
+```
+
+Platform identities do not belong to a Clerk organization. Enable **Allow Personal Accounts** in the Clerk dashboard so these accounts can complete sign-in. Tenant routes still require an active organization, and the API enforces that one Clerk user cannot be both a tenant user and a platform user.
+
+Apply the identity migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+Create the first platform super administrator after creating its dedicated user in Clerk:
+
+```bash
+uv run python scripts/bootstrap_platform_user.py \
+  --clerk-user-id user_xxxxxxxxx \
+  --email admin@ringiq.in \
+  --display-name "RingIQ Admin"
+```
+
+The bootstrap command refuses to convert an existing tenant identity. Subsequent platform-user invitations will be managed through the platform console in a later implementation slice.

@@ -13,6 +13,17 @@ class RecordStatus(StrEnum):
     SUSPENDED = "suspended"
 
 
+class UserRealm(StrEnum):
+    TENANT = "tenant"
+    PLATFORM = "platform"
+
+
+class PlatformRole(StrEnum):
+    SUPER_ADMIN = "platform_super_admin"
+    OPERATIONS = "platform_operations"
+    TEMPLATE_MANAGER = "template_manager"
+
+
 class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "tenants"
     __table_args__ = (
@@ -52,11 +63,29 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "status IN ('active', 'inactive', 'suspended')",
             name="status_valid",
         ),
+        CheckConstraint(
+            "realm IN ('tenant', 'platform')",
+            name="realm_valid",
+        ),
+        CheckConstraint(
+            "(realm = 'tenant' AND platform_role IS NULL) OR "
+            "(realm = 'platform' AND platform_role IS NOT NULL AND platform_role IN "
+            "('platform_super_admin', 'platform_operations', 'template_manager'))",
+            name="realm_role_valid",
+        ),
     )
 
     clerk_user_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     primary_email: Mapped[str | None] = mapped_column(String(320))
     display_name: Mapped[str | None] = mapped_column(String(255))
+    realm: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=UserRealm.TENANT.value,
+        server_default=text("'tenant'"),
+        index=True,
+    )
+    platform_role: Mapped[str | None] = mapped_column(String(40), index=True)
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,

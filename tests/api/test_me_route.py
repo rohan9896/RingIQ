@@ -3,9 +3,15 @@ from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
-from apps.api.ringiq_api.auth.context import TenantContext, get_current_tenant_context
+from apps.api.ringiq_api.auth.context import (
+    PlatformContext,
+    TenantContext,
+    get_current_platform_context,
+    get_current_tenant_context,
+)
 from apps.api.ringiq_api.config import VoiceSettings, get_voice_settings
 from apps.api.ringiq_api.main import create_app
+from apps.api.ringiq_api.models.identity import PlatformRole
 from apps.api.ringiq_api.schemas.demo_calls import DemoCallResponse
 from apps.api.ringiq_api.services.livekit_calls import LiveKitCallService
 
@@ -35,6 +41,24 @@ def test_me_route_returns_resolved_context() -> None:
     assert response.status_code == 200
     assert response.json()["tenant_id"] == str(context.tenant_id)
     assert response.json()["clerk_organization_id"] == "org_1"
+
+
+def test_platform_me_route_returns_role() -> None:
+    app = create_app()
+    context = PlatformContext(
+        user_id=uuid.uuid4(),
+        clerk_user_id="user_platform",
+        primary_email="admin@ringiq.in",
+        display_name="RingIQ Admin",
+        role=PlatformRole.SUPER_ADMIN,
+    )
+    app.dependency_overrides[get_current_platform_context] = lambda: context
+
+    with TestClient(app) as client:
+        response = client.get("/v1/platform/me")
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "platform_super_admin"
 
 
 def test_health_route_remains_public() -> None:

@@ -3,13 +3,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.api.ringiq_api.db.base import Base
-from apps.api.ringiq_api.models.identity import Tenant, TenantMembership, User
+from apps.api.ringiq_api.models.identity import (
+    PlatformRole,
+    Tenant,
+    TenantMembership,
+    User,
+    UserRealm,
+)
 
 
 def test_identity_models_use_uuid_primary_keys_and_expected_defaults() -> None:
     assert Tenant.__table__.c.timezone.default.arg == "Asia/Kolkata"
     assert Tenant.__table__.c.status.default.arg == "active"
     assert User.__table__.c.status.default.arg == "active"
+    assert User.__table__.c.realm.default.arg == "tenant"
     assert TenantMembership.__table__.c.status.default.arg == "active"
     assert TenantMembership.__table__.c.role_key.default.arg == "member"
 
@@ -68,6 +75,37 @@ async def test_invalid_record_status_is_rejected_by_database() -> None:
                     status="unknown",
                 )
             )
+            with pytest.raises(IntegrityError):
+                await session.commit()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "user",
+    [
+        User(
+            clerk_user_id="tenant_with_platform_role",
+            realm=UserRealm.TENANT.value,
+            platform_role=PlatformRole.SUPER_ADMIN.value,
+        ),
+        User(clerk_user_id="platform_without_role", realm=UserRealm.PLATFORM.value),
+        User(
+            clerk_user_id="platform_with_unknown_role",
+            realm=UserRealm.PLATFORM.value,
+            platform_role="unknown",
+        ),
+    ],
+)
+async def test_user_realm_and_platform_role_invariant_is_enforced(user: User) -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add(user)
             with pytest.raises(IntegrityError):
                 await session.commit()
     finally:

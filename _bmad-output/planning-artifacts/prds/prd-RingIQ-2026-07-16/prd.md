@@ -2,7 +2,7 @@
 title: RingIQ Voice AI Lead Calling SaaS
 status: draft
 created: 2026-07-16
-updated: 2026-07-16
+updated: 2026-07-17
 source_brd: ../../voice-ai-saas-business-requirements.md
 ---
 
@@ -57,12 +57,15 @@ Sources consulted during PRD drafting:
 - Sales Manager: monitors lead outcomes, identifies hot and warm leads, checks call evidence, and assigns manual follow-up.
 - Sales Representative: reviews qualified leads, listens to recordings or reads summaries when needed, and manually follows up outside RingIQ or through a future CRM workflow.
 - Business Owner or Operations Head: evaluates whether RingIQ reduces first-touch calling workload and improves speed-to-lead.
+- RingIQ Platform Super Admin: manages platform users, customer organizations, organization users, starter KB templates, and platform audit visibility.
+- RingIQ Platform Operations User: manages organization lifecycle and organization-user access while monitoring non-content operational health.
+- RingIQ Template Manager: creates and maintains category-specific Starter KB Templates used only to initialize a Tenant's first knowledge base.
 
 ### 3.2 Non-Users In Version 1
 
 - End leads as logged-in users. Leads only interact through phone calls.
 - Tenant billing administrators. Pricing and subscription management are out of scope.
-- Compliance administrators. DND, consent tracking, and formal compliance workflows are deferred.
+- Tenant compliance administrators. DND, consent tracking, and formal compliance workflows are deferred.
 - Human call center agents using RingIQ as a live transfer console. Live transfer is out of scope.
 - CRM operations teams. CRM integration is deferred.
 
@@ -74,6 +77,7 @@ Sources consulted during PRD drafting:
 - When the AI cannot answer a lead's question, I want to see the knowledge gap so I can improve future calls.
 - When a lead asks for a callback, I want the requested callback date and time captured so my sales team can act on it.
 - When I use the platform as a tenant, I need confidence that my leads, recordings, transcripts, and knowledge base cannot leak into another tenant's workspace.
+- When I operate RingIQ, I want to manage organizations, users, and starter templates without being able to inspect customer leads or conversation content.
 
 ## 4. Key User Journeys
 
@@ -155,6 +159,25 @@ Sources consulted during PRD drafting:
 
 **Edge case:** If source refresh fails, RingIQ must preserve the prior active knowledge base version and surface the failure to the tenant admin.
 
+### UJ-5. Nisha operates the RingIQ platform without entering customer content.
+
+**Persona + context:** Nisha is a RingIQ Platform Operations User. A customer organization cannot start new calls and its administrator needs access restored.
+
+**Entry state:** Nisha signs in through the dedicated RingIQ platform entrance and opens the `/platform` console.
+
+**Path:**
+
+1. Nisha searches for the organization by name and reviews its status, users, onboarding state, call volume, queue health, provider failures, and other non-content operational metrics.
+2. She cannot open Leads, private Knowledge Base content, Recordings, Transcripts, Conversation Summaries, or individual Lead outcomes.
+3. She reactivates the organization and confirms the administrative action.
+4. The organization can admit users and accept new calling work again.
+
+**Climax:** Nisha resolves the access problem using operational evidence without entering the customer's private workspace.
+
+**Resolution:** The action appears in the platform audit trail with the actor, target organization, action, and timestamp.
+
+**Edge case:** If an organization is suspended while a Connected Call is active, RingIQ blocks new and queued work but allows the already-connected call to finish.
+
 ## 5. Glossary
 
 - **RingIQ** — The multi-tenant SaaS platform described by this PRD.
@@ -184,6 +207,12 @@ Sources consulted during PRD drafting:
 - **Callback Requested Lead** — Lead explicitly asks to be contacted later. Callback date/time should be captured when provided.
 - **Knowledge Gap** — A question or call moment where the AI Agent could not answer confidently due to missing or insufficient Tenant knowledge.
 - **Follow-Up Queue** — Dashboard view containing hot, warm, and callback-requested Leads for manual sales action.
+- **Platform User** — An invitation-only RingIQ team identity that can access the platform administration realm but cannot hold Tenant memberships.
+- **Platform Super Admin** — Platform User who can manage organizations, organization users, platform users, Starter KB Templates, and platform audit logs.
+- **Platform Operations User** — Platform User who can manage organizations and organization-user access and review non-content operational health.
+- **Template Manager** — Platform User who can manage categories and Starter KB Templates but cannot manage organizations or Platform Users.
+- **Starter KB Template** — Platform-authored category guidance copied once when a Tenant initializes its first Knowledge Base. After copying, the Tenant owns and can completely change or remove every field; later template changes do not propagate.
+- **Platform Audit Event** — Immutable record of a Platform User's administrative action, including actor, action, target, time, and non-sensitive metadata.
 
 ## 6. Features And Functional Requirements
 
@@ -225,7 +254,7 @@ All Tenant Users can access Recordings, Transcripts, Call Records, imported Lead
 
 - Role-based access control within a Tenant.
 - Per-record permissioning.
-- Cross-tenant admin console.
+- Tenant-level role-based access control.
 
 ### 6.2 Tenant Business Profile
 
@@ -544,6 +573,77 @@ Tenant Users can view Knowledge Gaps discovered from Connected Calls.
 - Knowledge Gaps can be filtered by Campaign or date.
 - Knowledge Gaps do not expose data from another Tenant.
 
+### 6.10 RingIQ Platform Administration
+
+**Description:** RingIQ team members need a separate administration realm to operate customer organizations, users, category guidance, and service health without entering customer-private content. Realizes UJ-5.
+
+#### FR-31: Separate platform identity realm
+
+The system supports invitation-only Platform Users who access a dedicated `/platform/sign-in` entrance and `/platform` console.
+
+**Consequences:**
+
+- A person cannot simultaneously be a Platform User and a Tenant User.
+- Platform and Tenant routes enforce identity-realm separation at the API boundary, not only through hidden navigation.
+- A user entering through the wrong sign-in experience is redirected to the correct realm after authentication.
+- The first Platform Super Admin is established through a controlled deployment bootstrap; subsequent Platform Users are invited by a Platform Super Admin.
+
+#### FR-32: Platform role permissions
+
+The platform realm supports `platform_super_admin`, `platform_operations`, and `template_manager` roles.
+
+**Consequences:**
+
+- Platform Super Admin can manage organizations, organization users, Platform Users, Starter KB Templates, and platform audit visibility.
+- Platform Operations can manage organizations and organization-user access and view non-content operational health.
+- Template Manager can manage categories and Starter KB Templates.
+- Only Platform Super Admin can invite, disable, or change the role of another Platform User.
+
+#### FR-33: Platform privacy boundary
+
+Platform Users cannot access customer-private Lead or conversation content.
+
+**Consequences:**
+
+- Forbidden content includes Lead names, phone numbers, emails, uploaded fields, private Knowledge Base content, Recordings, Transcripts, Conversation Summaries, extracted notes, individual classifications, and follow-up details.
+- Platform Users may view organization profile metadata, organization users, masked call references, aggregate classifications, call volume, duration, cost, queue state, latency, provider failures, and service-health information.
+- Platform APIs must not fetch forbidden content and then rely on the frontend to hide it.
+- Platform Users cannot impersonate Tenant Users or enter a Tenant workspace.
+
+#### FR-34: Organization lifecycle administration
+
+Platform Super Admin and Platform Operations can create, suspend, and reactivate organizations and manage organization-user access.
+
+**Consequences:**
+
+- Organization creation supports inviting the first Tenant administrator.
+- Suspending an organization preserves its data, blocks Tenant access, and blocks new calls, queued calls, and retries.
+- A Connected Call already in progress when suspension occurs is allowed to finish.
+- Disabling an organization user revokes that user's active access.
+- Hard deletion of organizations is not supported in Version 1.
+
+#### FR-35: Starter KB Template management
+
+Platform Super Admin and Template Manager can create and edit category-specific Starter KB Templates.
+
+**Consequences:**
+
+- A Starter KB Template contains suggested questions, field labels, field types, guidance, default ordering, and initial required/optional settings.
+- The latest template is copied only when a Tenant initializes its first Knowledge Base for that category.
+- The copied Knowledge Base belongs entirely to the Tenant and every field can be added, changed, reordered, or removed.
+- Later changes to a Starter KB Template do not propagate to existing Tenant Knowledge Bases.
+- Platform Users cannot inspect Tenant answers or subsequent Tenant customizations.
+
+#### FR-36: Platform administrative audit trail
+
+The system records Platform User actions that change access, organizations, Platform Users, categories, or Starter KB Templates.
+
+**Consequences:**
+
+- Each event records the actor, action, target type, target identifier, timestamp, and non-sensitive change metadata.
+- Audit metadata must not contain Lead data, private Knowledge Base content, Transcripts, Recordings, or Conversation Summaries.
+- Platform Super Admin can review the audit trail; other Platform Users see only the audit visibility required by their role.
+
 ## 7. Cross-Cutting Non-Functional Requirements
 
 ### 7.1 Tenant Isolation And Security
@@ -552,6 +652,9 @@ Tenant Users can view Knowledge Gaps discovered from Connected Calls.
 - **NFR-2:** Knowledge Base retrieval must never cross Tenant boundaries.
 - **NFR-3:** Recordings, Transcripts, Lead records, and Call Records must be treated as sensitive data.
 - **NFR-4:** The system should preserve an audit trail sufficient to investigate wrong classifications, failed calls, and knowledge leakage concerns.
+- **NFR-13:** Platform authorization must be deny-by-default and independently enforced from Tenant membership authorization.
+- **NFR-14:** Platform operational views and audit events must not expose Lead data or customer-private conversation and Knowledge Base content.
+- **NFR-15:** Platform administrative mutations must be attributable to an authenticated Platform User and produce an audit event.
 
 ### 7.2 Voice Experience And Performance
 
@@ -605,6 +708,8 @@ Tenant Users can view Knowledge Gaps discovered from Connected Calls.
 - No human review or approval workflow before AI classifications are surfaced.
 - No autonomous deal closing, site-visit booking confirmation, payment collection, or legal commitment.
 - No tenant-authored advanced prompt builder.
+- No Platform User impersonation of Tenant Users.
+- No hard deletion of organizations through the platform console.
 
 ## 10. MVP Scope
 
@@ -628,6 +733,12 @@ Tenant Users can view Knowledge Gaps discovered from Connected Calls.
 - Follow-Up Queue for hot, warm, and callback-requested Leads.
 - Lead list, Lead detail, Campaign progress, and Knowledge Gaps dashboard views.
 - Indefinite data retention until future policy exists.
+- Dedicated platform sign-in and `/platform` administration console.
+- Three invitation-only platform roles with exclusive Platform-versus-Tenant identity classification.
+- Organization lifecycle and organization-user access administration.
+- Category-specific Starter KB Template management with one-time copying and no propagation.
+- Non-content organization usage and service-health visibility.
+- Platform administrative audit trail.
 
 ### 10.2 Out Of Scope For MVP
 
@@ -643,6 +754,10 @@ Tenant Users can view Knowledge Gaps discovered from Connected Calls.
 - Advanced script designer or prompt editing.
 - A/B testing.
 - Lead scoring beyond Interest Classification.
+- Customer-content access by Platform Users.
+- Platform impersonation of Tenant Users.
+- Automatic Starter KB Template synchronization to existing Tenant Knowledge Bases.
+- Hard organization deletion.
 
 ## 11. Success Metrics
 
@@ -680,6 +795,9 @@ Tenant Users can view Knowledge Gaps discovered from Connected Calls.
 | Lead classification errors | Sales teams waste time or miss opportunities | Evidence-backed summaries, recordings, transcripts, needs review outcome |
 | Indefinite retention increases exposure | Privacy and storage risk | Treat call artifacts as sensitive and design future retention controls |
 | Incomplete Tenant knowledge | AI cannot answer common questions | Required Knowledge Base Q&A Form, Additional Knowledge Data, Knowledge Gap workflow, and source refresh process |
+| Platform access exposes customer content | Severe privacy and trust failure | Separate platform authorization realm, content-denying APIs, masked references, and audit events |
+| Platform identity receives Tenant membership | Cross-realm privilege confusion | Enforce mutually exclusive Platform and Tenant identity classification |
+| Organization suspension interrupts a live Lead | Poor Lead experience and inconsistent records | Block new work immediately while allowing already-connected calls to finish |
 | Compliance requirements become urgent | Pilot or launch delay | Keep DND, consent, and retention extensibility explicit in architecture |
 
 ## 13. Open Questions For Architecture And UX
