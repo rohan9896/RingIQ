@@ -30,8 +30,32 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+.field-control {
+  width: 100%;
+  border: 1px solid #d8d5cc;
+  background: #fffefa;
+  color: #171714;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.field-control:focus {
+  border-color: #171714;
+  outline: 2px solid rgb(215 58 47 / 0.28);
+  outline-offset: 1px;
+}
+
+.field-control:disabled {
+  cursor: not-allowed;
+  background: #f0eee8;
+  color: #6d6b64;
 }
 
 a:not([class]) {

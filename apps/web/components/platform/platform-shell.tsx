@@ -32,7 +32,7 @@ const roleLabels: Record<PlatformRole, string> = {
 
 type PlatformNavigationItem = {
   label: string;
-  href: "/platform";
+  href: "/platform" | "/platform/templates";
   icon: typeof LayoutDashboard;
   roles: readonly PlatformRole[] | null;
 };
@@ -42,7 +42,7 @@ const navigation: PlatformNavigationItem[] = [
   { label: "Organizations", href: "/platform", icon: Building2, roles: ["platform_super_admin", "platform_operations"] },
   { label: "Org users", href: "/platform", icon: Users, roles: ["platform_super_admin", "platform_operations"] },
   { label: "Platform users", href: "/platform", icon: Shield, roles: ["platform_super_admin"] },
-  { label: "Starter templates", href: "/platform", icon: FileQuestion, roles: ["platform_super_admin", "template_manager"] },
+  { label: "Starter templates", href: "/platform/templates", icon: FileQuestion, roles: ["platform_super_admin", "template_manager"] },
   { label: "Service health", href: "/platform", icon: Activity, roles: ["platform_super_admin", "platform_operations"] },
 ];
 
@@ -122,12 +122,13 @@ export function PlatformShell({ children }: PlatformShellProps) {
           </div>
           <nav className="flex-1 space-y-1 p-3" aria-label="Platform navigation">
             {visibleNavigation.map((item, index) => {
-              const active = index === 0 && pathname === item.href;
-              return (
-                <Link className={`flex h-10 items-center gap-3 px-3 text-sm font-bold ${active ? "bg-[#171714] text-white" : "text-[#4e4c46] hover:bg-[#f0eee8]"}`} href={item.href} key={item.label}>
-                  <item.icon className="size-4" aria-hidden />
-                  {item.label}
-                </Link>
+              const active = pathname === item.href && (item.href !== "/platform" || index === 0);
+              const className = `flex h-10 items-center gap-3 px-3 text-sm font-bold ${active ? "bg-[#171714] text-white" : "text-[#4e4c46] hover:bg-[#f0eee8]"}`;
+              const content = <><item.icon className="size-4" aria-hidden />{item.label}</>;
+              return item.href === "/platform/templates" ? (
+                <Link className={className} href="/platform/templates" key={item.label}>{content}</Link>
+              ) : (
+                <Link className={className} href="/platform" key={item.label}>{content}</Link>
               );
             })}
           </nav>

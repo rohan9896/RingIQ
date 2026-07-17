@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from apps.api.ringiq_api.db.session import dispose_database
 from apps.api.ringiq_api.logging import configure_logging
-from apps.api.ringiq_api.routes import demo_calls, health, me, platform
+from apps.api.ringiq_api.routes import demo_calls, health, me, platform, platform_catalog
 
 
 @asynccontextmanager
@@ -25,6 +25,7 @@ def create_app() -> FastAPI:
     app.include_router(demo_calls.router)
     app.include_router(me.router)
     app.include_router(platform.router)
+    app.include_router(platform_catalog.router)
     return app
 
 

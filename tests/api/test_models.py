@@ -3,6 +3,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.api.ringiq_api.db.base import Base
+from apps.api.ringiq_api.models.catalog import (
+    Category,
+    CategoryTemplateVersion,
+    QnaQuestion,
+    QuestionAnswerType,
+    TemplateStatus,
+)
 from apps.api.ringiq_api.models.identity import (
     PlatformRole,
     Tenant,
@@ -19,6 +26,8 @@ def test_identity_models_use_uuid_primary_keys_and_expected_defaults() -> None:
     assert User.__table__.c.realm.default.arg == "tenant"
     assert TenantMembership.__table__.c.status.default.arg == "active"
     assert TenantMembership.__table__.c.role_key.default.arg == "member"
+    assert Category.__table__.c.status.default.arg == "active"
+    assert CategoryTemplateVersion.__table__.c.status.default.arg == "draft"
 
 
 def test_membership_table_has_tenant_user_uniqueness() -> None:
@@ -53,6 +62,50 @@ async def test_external_identity_ids_are_database_unique(records: tuple[object, 
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
         async with session_factory() as session:
             session.add_all(records)
+            with pytest.raises(IntegrityError):
+                await session.commit()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_category_template_question_invariants_are_enforced() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_factory() as session:
+            category = Category(key="real_estate", name="Real Estate")
+            session.add(category)
+            await session.flush()
+            template = CategoryTemplateVersion(
+                category_id=category.id,
+                version=1,
+                title="Initial real estate template",
+                status=TemplateStatus.DRAFT.value,
+            )
+            session.add(template)
+            await session.flush()
+            session.add_all(
+                [
+                    QnaQuestion(
+                        category_template_version_id=template.id,
+                        key="project_name",
+                        label="Project name",
+                        answer_type=QuestionAnswerType.SHORT_TEXT.value,
+                        display_order=0,
+                    ),
+                    QnaQuestion(
+                        category_template_version_id=template.id,
+                        key="project_name",
+                        label="Duplicate project name",
+                        answer_type=QuestionAnswerType.SHORT_TEXT.value,
+                        display_order=1,
+                    ),
+                ]
+            )
+
             with pytest.raises(IntegrityError):
                 await session.commit()
     finally:

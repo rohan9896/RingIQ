@@ -21,7 +21,14 @@ def test_identity_migration_upgrade_and_downgrade(
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert {"tenants", "users", "tenant_memberships"}.issubset(tables)
+    assert {
+        "tenants",
+        "users",
+        "tenant_memberships",
+        "categories",
+        "category_template_versions",
+        "qna_questions",
+    }.issubset(tables)
     with sqlite3.connect(database_path) as connection:
         user_columns = {
             row[1] for row in connection.execute("PRAGMA table_info('users')")

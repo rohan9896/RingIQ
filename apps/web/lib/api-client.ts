@@ -73,3 +73,144 @@ export async function fetchPlatformIdentity(token: string) {
 
   return (await response.json()) as PlatformIdentity;
 }
+
+export type CategoryStatus = "active" | "inactive";
+export type TemplateStatus = "draft" | "published" | "archived";
+export type QuestionAnswerType =
+  | "short_text"
+  | "long_text"
+  | "number"
+  | "boolean"
+  | "single_select"
+  | "multi_select"
+  | "date";
+
+export type PlatformCategory = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  status: CategoryStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TemplateQuestion = {
+  id: string;
+  key: string;
+  label: string;
+  help_text: string | null;
+  answer_type: QuestionAnswerType;
+  required: boolean;
+  display_order: number;
+  validation_json: Record<string, unknown>;
+  options_json: unknown[] | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TemplateQuestionInput = Omit<TemplateQuestion, "id" | "created_at" | "updated_at">;
+
+export type PlatformTemplateVersion = {
+  id: string;
+  category_id: string;
+  version: number;
+  title: string;
+  description: string | null;
+  status: TemplateStatus;
+  lead_schema_json: Record<string, unknown>;
+  published_at: string | null;
+  published_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+  qna_questions: TemplateQuestion[];
+};
+
+async function platformRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}/v1/platform${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail = typeof body?.detail === "string" ? body.detail : `Backend returned ${response.status}`;
+    throw new Error(detail);
+  }
+
+  return (await response.json()) as T;
+}
+
+export function fetchPlatformCategories(token: string) {
+  return platformRequest<PlatformCategory[]>(token, "/categories");
+}
+
+export function createPlatformCategory(
+  token: string,
+  payload: Pick<PlatformCategory, "key" | "name" | "description" | "status">,
+) {
+  return platformRequest<PlatformCategory>(token, "/categories", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updatePlatformCategory(
+  token: string,
+  categoryId: string,
+  payload: Partial<Pick<PlatformCategory, "name" | "description" | "status">>,
+) {
+  return platformRequest<PlatformCategory>(token, `/categories/${categoryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchCategoryTemplateVersions(token: string, categoryId: string) {
+  return platformRequest<PlatformTemplateVersion[]>(token, `/categories/${categoryId}/template-versions`);
+}
+
+export function createCategoryTemplateVersion(
+  token: string,
+  categoryId: string,
+  payload: Pick<PlatformTemplateVersion, "title" | "description" | "lead_schema_json"> & {
+    qna_questions: TemplateQuestionInput[];
+  },
+) {
+  return platformRequest<PlatformTemplateVersion>(token, `/categories/${categoryId}/template-versions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateCategoryTemplateVersion(
+  token: string,
+  templateVersionId: string,
+  payload: Partial<Pick<PlatformTemplateVersion, "title" | "description" | "lead_schema_json">>,
+) {
+  return platformRequest<PlatformTemplateVersion>(token, `/template-versions/${templateVersionId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function replaceTemplateQuestions(
+  token: string,
+  templateVersionId: string,
+  qnaQuestions: TemplateQuestionInput[],
+) {
+  return platformRequest<PlatformTemplateVersion>(token, `/template-versions/${templateVersionId}/questions`, {
+    method: "PUT",
+    body: JSON.stringify({ qna_questions: qnaQuestions }),
+  });
+}
+
+export function publishCategoryTemplateVersion(token: string, templateVersionId: string) {
+  return platformRequest<PlatformTemplateVersion>(token, `/template-versions/${templateVersionId}/publish`, {
+    method: "POST",
+  });
+}
