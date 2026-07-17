@@ -69,6 +69,20 @@ def test_health_route_remains_public() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_api_allows_preflight_from_local_web_app() -> None:
+    with TestClient(create_app()) as client:
+        response = client.options(
+            "/v1/leads",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
 def test_demo_call_route_does_not_require_identity_configuration(
     monkeypatch,
 ) -> None:

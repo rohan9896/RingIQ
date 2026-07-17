@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from apps.api.ringiq_api.config import VoiceSettings
+from apps.api.ringiq_api.config import AppSettings, VoiceSettings
 from tests.api.helpers import make_settings
 
 
@@ -38,3 +38,15 @@ def test_voice_settings_do_not_require_identity_configuration() -> None:
     )
 
     assert settings.livekit_agent_name == "ringiq-demo-agent"
+
+
+def test_cors_origins_are_trimmed_and_empty_values_removed() -> None:
+    settings = AppSettings(
+        _env_file=None,
+        cors_allowed_origins_raw="http://localhost:3000, https://ringiq.example, ",
+    )
+
+    assert settings.cors_allowed_origins == [
+        "http://localhost:3000",
+        "https://ringiq.example",
+    ]

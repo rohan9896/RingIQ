@@ -80,7 +80,7 @@ Use `clerk_backend_api.authenticate_request()` with `AuthenticateRequestOptions(
 - `.venv/bin/pytest -q` -- passed; 26 tests, with one upstream Starlette deprecation warning.
 - `.venv/bin/python -m compileall -q apps migrations tests` -- passed.
 - `git diff --check` -- passed.
-- Alembic upgrade/downgrade is covered against temporary SQLite; configured PostgreSQL was not mutated.
+- Alembic upgrade/downgrade is covered against an isolated PostgreSQL test database; the configured application database is not mutated.
 
 ## Suggested Review Order
 

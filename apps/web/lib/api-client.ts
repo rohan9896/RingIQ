@@ -312,3 +312,68 @@ export function replaceTenantKnowledgeQuestions(
 export function publishTenantKnowledgeDraft(token: string, versionId: string) {
   return tenantRequest<TenantKnowledgeVersion>(token, `/drafts/${versionId}/publish`, { method: "POST" });
 }
+
+export type Lead = {
+  id: string;
+  name: string;
+  email: string;
+  phone_number: string;
+  normalized_phone_number: string;
+  attributes_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LeadImportRow = {
+  id: string;
+  lead_id: string | null;
+  row_number: number;
+  status: "imported" | "invalid" | "duplicate";
+  error_code: string | null;
+  error_message: string | null;
+  raw_data_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type LeadImport = {
+  id: string;
+  filename: string;
+  status: "completed";
+  total_rows: number;
+  imported_rows: number;
+  invalid_rows: number;
+  duplicate_rows: number;
+  column_mapping_json: Record<string, string>;
+  created_at: string;
+};
+
+export type LeadImportDetail = LeadImport & { rows: LeadImportRow[] };
+
+async function leadsRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}/v1${path}`, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...options?.headers },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail = typeof body?.detail === "string" ? body.detail : body?.detail ?? `Backend returned ${response.status}`;
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  return (await response.json()) as T;
+}
+
+export function fetchLeads(token: string, query?: string) {
+  const search = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
+  return leadsRequest<Lead[]>(token, `/leads${search}`);
+}
+
+export function fetchLeadImports(token: string) {
+  return leadsRequest<LeadImport[]>(token, "/lead-imports");
+}
+
+export function createLeadImport(
+  token: string,
+  payload: { filename: string; csv_content: string; column_mapping: Record<string, string> },
+) {
+  return leadsRequest<LeadImportDetail>(token, "/lead-imports", { method: "POST", body: JSON.stringify(payload) });
+}

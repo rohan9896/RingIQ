@@ -4,10 +4,9 @@ from collections.abc import AsyncIterator, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from apps.api.ringiq_api.auth.context import TenantContext, get_current_tenant_context
-from apps.api.ringiq_api.db.base import Base
 from apps.api.ringiq_api.db.session import get_db_session
 from apps.api.ringiq_api.main import create_app
 from apps.api.ringiq_api.models.catalog import (
@@ -17,6 +16,7 @@ from apps.api.ringiq_api.models.catalog import (
     TemplateStatus,
 )
 from apps.api.ringiq_api.models.identity import Tenant, User
+from tests.api.postgres import create_test_engine, reset_database
 
 
 def make_context() -> TenantContext:
@@ -86,15 +86,13 @@ async def seed_tenant_and_template(
 
 
 @pytest.fixture
-def tenant_knowledge_client(tmp_path) -> Iterator[tuple[TestClient, uuid.UUID]]:
-    database_path = tmp_path / "knowledge.sqlite3"
-    engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
+def tenant_knowledge_client() -> Iterator[tuple[TestClient, uuid.UUID]]:
+    engine = create_test_engine()
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     context = make_context()
 
     async def setup() -> uuid.UUID:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
+        await reset_database(engine)
         return await seed_tenant_and_template(session_factory, context)
 
     async def override_session() -> AsyncIterator[AsyncSession]:

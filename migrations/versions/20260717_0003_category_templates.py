@@ -132,7 +132,7 @@ def upgrade() -> None:
         sa.Column("label", sa.String(length=500), nullable=False),
         sa.Column("help_text", sa.String(length=1000), nullable=True),
         sa.Column("answer_type", sa.String(length=30), nullable=False),
-        sa.Column("required", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("required", sa.Boolean(), server_default=sa.text("true"), nullable=False),
         sa.Column("display_order", sa.Integer(), nullable=False),
         sa.Column("validation_json", sa.JSON(), server_default=sa.text("'{}'"), nullable=False),
         sa.Column("options_json", sa.JSON(), nullable=True),
@@ -161,7 +161,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["category_template_version_id"],
             ["category_template_versions.id"],
-            name="fk_qna_questions_category_template_version_id_category_template_versions",
+            name="fk_qna_questions_template_version_id",
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_qna_questions"),

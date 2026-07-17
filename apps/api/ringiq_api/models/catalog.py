@@ -142,7 +142,7 @@ class QnaQuestion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Boolean,
         nullable=False,
         default=True,
-        server_default=text("1"),
+        server_default=text("true"),
     )
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
     validation_json: Mapped[dict] = mapped_column(

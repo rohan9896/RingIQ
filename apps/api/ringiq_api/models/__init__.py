@@ -18,11 +18,15 @@ from apps.api.ringiq_api.models.knowledge import (
     TenantKnowledgeBaseVersion,
     TenantKnowledgeQuestion,
 )
+from apps.api.ringiq_api.models.leads import Lead, LeadImport, LeadImportRow
 
 __all__ = [
     "Category",
     "CategoryStatus",
     "CategoryTemplateVersion",
+    "Lead",
+    "LeadImport",
+    "LeadImportRow",
     "PlatformRole",
     "QnaQuestion",
     "QuestionAnswerType",

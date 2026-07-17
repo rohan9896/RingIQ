@@ -1,26 +1,58 @@
-import sqlite3
+import asyncio
 
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import inspect, text
+
+from tests.api.postgres import create_test_engine, get_test_database_url
 
 
-def test_identity_migration_upgrade_and_downgrade(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    database_path = tmp_path / "migration.sqlite3"
-    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{database_path}")
+async def reset_migration_database() -> None:
+    engine = create_test_engine()
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text("DROP SCHEMA public CASCADE"))
+            await connection.execute(text("CREATE SCHEMA public"))
+    finally:
+        await engine.dispose()
+
+
+async def inspect_migration_database() -> tuple[set[str], set[str]]:
+    engine = create_test_engine()
+    try:
+        async with engine.connect() as connection:
+            return await connection.run_sync(
+                lambda sync_connection: (
+                    set(inspect(sync_connection).get_table_names()),
+                    {
+                        column["name"]
+                        for column in inspect(sync_connection).get_columns("users")
+                    },
+                )
+            )
+    finally:
+        await engine.dispose()
+
+
+async def get_migration_tables() -> set[str]:
+    engine = create_test_engine()
+    try:
+        async with engine.connect() as connection:
+            return await connection.run_sync(
+                lambda sync_connection: set(inspect(sync_connection).get_table_names())
+            )
+    finally:
+        await engine.dispose()
+
+
+def test_identity_migration_upgrade_and_downgrade(monkeypatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", get_test_database_url())
     config = Config("alembic.ini")
 
+    asyncio.run(reset_migration_database())
     command.upgrade(config, "head")
 
-    with sqlite3.connect(database_path) as connection:
-        tables = {
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
-        }
+    tables, user_columns = asyncio.run(inspect_migration_database())
     assert {
         "tenants",
         "users",
@@ -31,20 +63,12 @@ def test_identity_migration_upgrade_and_downgrade(
         "tenant_knowledge_bases",
         "tenant_knowledge_base_versions",
         "tenant_knowledge_questions",
+        "leads",
+        "lead_imports",
+        "lead_import_rows",
     }.issubset(tables)
-    with sqlite3.connect(database_path) as connection:
-        user_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info('users')")
-        }
     assert {"realm", "platform_role"}.issubset(user_columns)
 
     command.downgrade(config, "base")
 
-    with sqlite3.connect(database_path) as connection:
-        tables = {
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
-        }
-    assert "tenant_memberships" not in tables
+    assert "tenant_memberships" not in asyncio.run(get_migration_tables())

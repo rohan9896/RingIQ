@@ -12,12 +12,22 @@ from apps.api.ringiq_api.schemas.catalog import (
 )
 from apps.api.ringiq_api.schemas.me import MeResponse
 from apps.api.ringiq_api.schemas.platform import PlatformMeResponse
+from apps.api.ringiq_api.schemas.leads import (
+    LeadImportCreateRequest,
+    LeadImportDetailResponse,
+    LeadImportResponse,
+    LeadResponse,
+)
 
 __all__ = [
     "CategoryCreateRequest",
     "CategoryResponse",
     "CategoryTemplateVersionResponse",
     "CategoryUpdateRequest",
+    "LeadImportCreateRequest",
+    "LeadImportDetailResponse",
+    "LeadImportResponse",
+    "LeadResponse",
     "MeResponse",
     "PlatformMeResponse",
     "QnaQuestionResponse",

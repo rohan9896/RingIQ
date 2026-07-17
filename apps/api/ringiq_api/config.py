@@ -9,6 +9,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class AppSettings(BaseSettings):
     app_name: str = "RingIQ API"
     environment: str = "local"
+    cors_allowed_origins_raw: str = Field(
+        "http://localhost:3000,http://localhost:3001",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -16,6 +20,14 @@ class AppSettings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.cors_allowed_origins_raw.split(",")
+            if origin.strip()
+        ]
 
 
 class VoiceSettings(AppSettings):
@@ -62,6 +74,11 @@ class Settings(VoiceSettings, IdentitySettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+@lru_cache
+def get_app_settings() -> AppSettings:
+    return AppSettings()
 
 
 @lru_cache

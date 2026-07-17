@@ -1,8 +1,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from apps.api.ringiq_api.db.base import Base
 from apps.api.ringiq_api.models.catalog import (
     Category,
     CategoryTemplateVersion,
@@ -17,6 +16,7 @@ from apps.api.ringiq_api.models.identity import (
     User,
     UserRealm,
 )
+from tests.api.postgres import create_test_engine, reset_database
 
 
 def test_identity_models_use_uuid_primary_keys_and_expected_defaults() -> None:
@@ -55,10 +55,9 @@ def test_membership_table_has_tenant_user_uniqueness() -> None:
     ],
 )
 async def test_external_identity_ids_are_database_unique(records: tuple[object, object]) -> None:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_test_engine()
     try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
+        await reset_database(engine)
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
         async with session_factory() as session:
             session.add_all(records)
@@ -70,10 +69,9 @@ async def test_external_identity_ids_are_database_unique(records: tuple[object, 
 
 @pytest.mark.asyncio
 async def test_category_template_question_invariants_are_enforced() -> None:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_test_engine()
     try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
+        await reset_database(engine)
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
         async with session_factory() as session:
             category = Category(key="real_estate", name="Real Estate")
@@ -114,10 +112,9 @@ async def test_category_template_question_invariants_are_enforced() -> None:
 
 @pytest.mark.asyncio
 async def test_invalid_record_status_is_rejected_by_database() -> None:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_test_engine()
     try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
+        await reset_database(engine)
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
         async with session_factory() as session:
             session.add(
@@ -152,10 +149,9 @@ async def test_invalid_record_status_is_rejected_by_database() -> None:
     ],
 )
 async def test_user_realm_and_platform_role_invariant_is_enforced(user: User) -> None:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_test_engine()
     try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
+        await reset_database(engine)
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
         async with session_factory() as session:
             session.add(user)
