@@ -13,6 +13,11 @@ from apps.api.ringiq_api.models.identity import (
     User,
     UserRealm,
 )
+from apps.api.ringiq_api.models.knowledge import (
+    TenantKnowledgeBase,
+    TenantKnowledgeBaseVersion,
+    TenantKnowledgeQuestion,
+)
 
 __all__ = [
     "Category",
@@ -23,6 +28,9 @@ __all__ = [
     "QuestionAnswerType",
     "TemplateStatus",
     "Tenant",
+    "TenantKnowledgeBase",
+    "TenantKnowledgeBaseVersion",
+    "TenantKnowledgeQuestion",
     "TenantMembership",
     "User",
     "UserRealm",

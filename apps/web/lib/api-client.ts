@@ -214,3 +214,101 @@ export function publishCategoryTemplateVersion(token: string, templateVersionId:
     method: "POST",
   });
 }
+
+export type StarterTemplate = {
+  id: string;
+  category_id: string;
+  category_key: string;
+  category_name: string;
+  title: string;
+  description: string | null;
+  lead_schema_json: Record<string, unknown>;
+  qna_questions: Omit<TemplateQuestion, "created_at" | "updated_at">[];
+};
+
+export type TenantKnowledgeQuestion = TemplateQuestion & {
+  answer_value_json: unknown | null;
+};
+
+export type TenantKnowledgeVersion = {
+  id: string;
+  knowledge_base_id: string;
+  tenant_id: string;
+  category_id: string | null;
+  source_template_version_id: string | null;
+  version: number;
+  title: string;
+  business_profile_json: Record<string, unknown>;
+  additional_notes: string | null;
+  status: TemplateStatus;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  questions: TenantKnowledgeQuestion[];
+};
+
+export type TenantKnowledgeBase = {
+  id: string;
+  tenant_id: string;
+  active_version: TenantKnowledgeVersion | null;
+  draft_version: TenantKnowledgeVersion | null;
+};
+
+async function tenantRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}/v1/knowledge-base${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail = typeof body?.detail === "string" ? body.detail : body?.detail ?? `Backend returned ${response.status}`;
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  return (await response.json()) as T;
+}
+
+export function fetchStarterTemplates(token: string) {
+  return tenantRequest<StarterTemplate[]>(token, "/starter-templates");
+}
+
+export function fetchTenantKnowledgeBase(token: string) {
+  return tenantRequest<TenantKnowledgeBase | null>(token, "");
+}
+
+export function createTenantKnowledgeDraft(token: string, starterTemplateVersionId?: string) {
+  return tenantRequest<TenantKnowledgeVersion>(token, "/drafts", {
+    method: "POST",
+    body: JSON.stringify({ starter_template_version_id: starterTemplateVersionId ?? null }),
+  });
+}
+
+export function updateTenantKnowledgeDraft(
+  token: string,
+  versionId: string,
+  payload: Pick<TenantKnowledgeVersion, "title" | "business_profile_json" | "additional_notes">,
+) {
+  return tenantRequest<TenantKnowledgeVersion>(token, `/drafts/${versionId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function replaceTenantKnowledgeQuestions(
+  token: string,
+  versionId: string,
+  questions: Array<Omit<TenantKnowledgeQuestion, "id" | "created_at" | "updated_at">>,
+) {
+  return tenantRequest<TenantKnowledgeVersion>(token, `/drafts/${versionId}/questions`, {
+    method: "PUT",
+    body: JSON.stringify({ questions }),
+  });
+}
+
+export function publishTenantKnowledgeDraft(token: string, versionId: string) {
+  return tenantRequest<TenantKnowledgeVersion>(token, `/drafts/${versionId}/publish`, { method: "POST" });
+}

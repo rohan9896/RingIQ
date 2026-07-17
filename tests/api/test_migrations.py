@@ -28,6 +28,9 @@ def test_identity_migration_upgrade_and_downgrade(
         "categories",
         "category_template_versions",
         "qna_questions",
+        "tenant_knowledge_bases",
+        "tenant_knowledge_base_versions",
+        "tenant_knowledge_questions",
     }.issubset(tables)
     with sqlite3.connect(database_path) as connection:
         user_columns = {

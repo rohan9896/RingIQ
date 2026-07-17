@@ -25,4 +25,18 @@ __all__ = [
     "TemplateQuestionsReplaceRequest",
     "TemplateVersionCreateRequest",
     "TemplateVersionUpdateRequest",
+    "CreateKnowledgeBaseDraftRequest",
+    "ReplaceTenantKnowledgeQuestionsRequest",
+    "StarterTemplateResponse",
+    "TenantKnowledgeBaseResponse",
+    "TenantKnowledgeVersionResponse",
+    "UpdateKnowledgeBaseDraftRequest",
 ]
+from apps.api.ringiq_api.schemas.knowledge import (
+    CreateKnowledgeBaseDraftRequest,
+    ReplaceTenantKnowledgeQuestionsRequest,
+    StarterTemplateResponse,
+    TenantKnowledgeBaseResponse,
+    TenantKnowledgeVersionResponse,
+    UpdateKnowledgeBaseDraftRequest,
+)
