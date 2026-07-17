@@ -1,0 +1,74 @@
+import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from apps.api.ringiq_api.db.base import Base
+from apps.api.ringiq_api.models.identity import Tenant, TenantMembership, User
+
+
+def test_identity_models_use_uuid_primary_keys_and_expected_defaults() -> None:
+    assert Tenant.__table__.c.timezone.default.arg == "Asia/Kolkata"
+    assert Tenant.__table__.c.status.default.arg == "active"
+    assert User.__table__.c.status.default.arg == "active"
+    assert TenantMembership.__table__.c.status.default.arg == "active"
+    assert TenantMembership.__table__.c.role_key.default.arg == "member"
+
+
+def test_membership_table_has_tenant_user_uniqueness() -> None:
+    unique_column_sets = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in TenantMembership.__table__.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"
+    }
+
+    assert ("tenant_id", "user_id") in unique_column_sets
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("records"),
+    [
+        (
+            Tenant(clerk_organization_id="org_1", name="One", slug="one"),
+            Tenant(clerk_organization_id="org_1", name="Two", slug="two"),
+        ),
+        (
+            User(clerk_user_id="user_1"),
+            User(clerk_user_id="user_1"),
+        ),
+    ],
+)
+async def test_external_identity_ids_are_database_unique(records: tuple[object, object]) -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add_all(records)
+            with pytest.raises(IntegrityError):
+                await session.commit()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_invalid_record_status_is_rejected_by_database() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add(
+                Tenant(
+                    clerk_organization_id="org_1",
+                    name="One",
+                    slug="one",
+                    status="unknown",
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await session.commit()
+    finally:
+        await engine.dispose()

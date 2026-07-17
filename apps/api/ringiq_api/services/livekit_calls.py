@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from livekit import api
 
-from apps.api.ringiq_api.config import Settings
+from apps.api.ringiq_api.config import VoiceSettings
 from apps.api.ringiq_api.schemas.demo_calls import DemoCallRequest, DemoCallResponse
 
 logger = logging.getLogger("ringiq.api.livekit_calls")
@@ -16,7 +16,7 @@ class LiveKitCallServiceError(RuntimeError):
 
 
 class LiveKitCallService:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: VoiceSettings) -> None:
         self._settings = settings
 
     async def create_demo_call(self, request: DemoCallRequest) -> DemoCallResponse:

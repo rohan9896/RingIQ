@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from apps.api.ringiq_api.config import Settings, get_settings
+from apps.api.ringiq_api.config import VoiceSettings, get_voice_settings
 from apps.api.ringiq_api.schemas.demo_calls import DemoCallRequest, DemoCallResponse, PipelineEventRequest
 from apps.api.ringiq_api.services.livekit_calls import LiveKitCallService, LiveKitCallServiceError
 
@@ -13,7 +13,7 @@ logger = logging.getLogger("ringiq.api.demo")
 @router.post("/calls", response_model=DemoCallResponse, status_code=status.HTTP_202_ACCEPTED)
 async def create_demo_call(
     request: DemoCallRequest,
-    settings: Settings = Depends(get_settings),
+    settings: VoiceSettings = Depends(get_voice_settings),
 ) -> DemoCallResponse:
     logger.info("demo_call.requested phone_number=%s", request.phone_number)
     service = LiveKitCallService(settings)
