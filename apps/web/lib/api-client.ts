@@ -320,6 +320,9 @@ export type Lead = {
   phone_number: string;
   normalized_phone_number: string;
   attributes_json: Record<string, unknown>;
+  status: "active" | "archived";
+  manual_status: "new" | "in_progress" | "follow_up" | "closed";
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -362,8 +365,11 @@ async function leadsRequest<T>(token: string, path: string, options?: RequestIni
   return (await response.json()) as T;
 }
 
-export function fetchLeads(token: string, query?: string) {
-  const search = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
+export function fetchLeads(token: string, query?: string, includeArchived = false) {
+  const params = new URLSearchParams();
+  if (query?.trim()) params.set("query", query.trim());
+  if (includeArchived) params.set("include_archived", "true");
+  const search = params.size ? `?${params.toString()}` : "";
   return leadsRequest<Lead[]>(token, `/leads${search}`);
 }
 
@@ -376,4 +382,142 @@ export function createLeadImport(
   payload: { filename: string; csv_content: string; column_mapping: Record<string, string> },
 ) {
   return leadsRequest<LeadImportDetail>(token, "/lead-imports", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function fetchLeadImport(token: string, importId: string) {
+  return leadsRequest<LeadImportDetail>(token, `/lead-imports/${importId}`);
+}
+
+export function fetchLead(token: string, leadId: string) {
+  return leadsRequest<Lead>(token, `/leads/${leadId}`);
+}
+
+export function updateLead(
+  token: string,
+  leadId: string,
+  payload: Partial<Pick<Lead, "name" | "email" | "phone_number" | "attributes_json" | "manual_status">>,
+) {
+  return leadsRequest<Lead>(token, `/leads/${leadId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function archiveLead(token: string, leadId: string) {
+  return leadsRequest<Lead>(token, `/leads/${leadId}/archive`, { method: "POST" });
+}
+
+export function restoreLead(token: string, leadId: string) {
+  return leadsRequest<Lead>(token, `/leads/${leadId}/restore`, { method: "POST" });
+}
+
+export type CampaignStatus =
+  | "draft"
+  | "ready"
+  | "running"
+  | "paused"
+  | "completed"
+  | "cancelled"
+  | "failed";
+
+export type EnrollmentStatus =
+  | "pending"
+  | "queued"
+  | "calling"
+  | "connected"
+  | "retry_scheduled"
+  | "completed"
+  | "invalid_number"
+  | "exhausted"
+  | "cancelled";
+
+export type CallAttempt = {
+  id: string;
+  attempt_number: number;
+  status: string;
+  scheduled_at: string;
+  started_at: string | null;
+  answered_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  provider: string | null;
+  provider_call_id: string | null;
+  livekit_room_name: string | null;
+  failure_code: string | null;
+  failure_detail: string | null;
+};
+
+export type CampaignProgress = Record<EnrollmentStatus, number> & { total: number };
+
+export type Campaign = {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  source_import_id: string | null;
+  knowledge_base_version_id: string | null;
+  retry_limit: number;
+  retry_policy_json: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  readiness: { is_ready: boolean; blockers: string[] };
+  progress: CampaignProgress;
+};
+
+export type CampaignEnrollment = {
+  id: string;
+  lead_id: string;
+  lead_name: string;
+  lead_email: string;
+  lead_phone_number: string;
+  status: EnrollmentStatus;
+  attempt_count: number;
+  next_attempt_at: string | null;
+  last_error_code: string | null;
+  attempts: CallAttempt[];
+};
+
+export type CampaignDetail = Campaign & { enrollments: CampaignEnrollment[] };
+
+export type LeadCampaignHistory = {
+  campaign_id: string;
+  campaign_name: string;
+  campaign_status: CampaignStatus;
+  enrollment_id: string;
+  enrollment_status: EnrollmentStatus;
+  attempt_count: number;
+  attempts: CallAttempt[];
+};
+
+export function fetchCampaigns(token: string) {
+  return leadsRequest<Campaign[]>(token, "/campaigns");
+}
+
+export function fetchCampaign(token: string, campaignId: string) {
+  return leadsRequest<CampaignDetail>(token, `/campaigns/${campaignId}`);
+}
+
+export function createCampaign(
+  token: string,
+  payload: { name: string; lead_ids: string[]; retry_limit?: number; source_import_id?: string | null },
+) {
+  return leadsRequest<CampaignDetail>(token, "/campaigns", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function changeCampaignState(
+  token: string,
+  campaignId: string,
+  action: "start" | "pause" | "resume" | "cancel",
+) {
+  return leadsRequest<CampaignDetail>(token, `/campaigns/${campaignId}/${action}`, {
+    method: "POST",
+  });
+}
+
+export function fetchLeadCampaignHistory(token: string, leadId: string) {
+  return leadsRequest<LeadCampaignHistory[]>(token, `/leads/${leadId}/campaign-history`);
 }

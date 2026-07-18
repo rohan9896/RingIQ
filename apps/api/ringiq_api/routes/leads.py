@@ -2,6 +2,7 @@ import csv
 import io
 import re
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -15,12 +16,15 @@ from apps.api.ringiq_api.models.leads import (
     LeadImport,
     LeadImportRow,
     LeadImportRowStatus,
+    LeadManualStatus,
+    LeadStatus,
 )
 from apps.api.ringiq_api.schemas.leads import (
     LeadImportCreateRequest,
     LeadImportDetailResponse,
     LeadImportResponse,
     LeadResponse,
+    LeadUpdateRequest,
 )
 
 router = APIRouter(prefix="/v1", tags=["leads"])
@@ -98,6 +102,32 @@ async def _commit(session: AsyncSession, detail: str) -> None:
     except SQLAlchemyError as exc:
         await session.rollback()
         raise HTTPException(status_code=503, detail="lead_store_unavailable") from exc
+
+
+async def _get_lead(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> Lead:
+    statement = select(Lead).where(
+        Lead.id == lead_id,
+        Lead.tenant_id == tenant_id,
+    )
+    lead = (await session.execute(statement)).scalar_one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="lead_not_found")
+    return lead
+
+
+def _validate_email(email: str) -> str:
+    normalized_email = email.strip()
+    if (
+        "@" not in normalized_email
+        or normalized_email.startswith("@")
+        or normalized_email.endswith("@")
+    ):
+        raise HTTPException(status_code=422, detail="invalid_email")
+    return normalized_email
 
 
 @router.post("/lead-imports", response_model=LeadImportDetailResponse, status_code=status.HTTP_201_CREATED)
@@ -228,10 +258,13 @@ async def get_lead_import(
 @router.get("/leads", response_model=list[LeadResponse])
 async def list_leads(
     query: str | None = Query(default=None, max_length=255),
+    include_archived: bool = False,
     context: TenantContext = Depends(get_current_tenant_context),
     session: AsyncSession = Depends(get_db_session),
 ) -> list[Lead]:
     statement = select(Lead).where(Lead.tenant_id == context.tenant_id)
+    if not include_archived:
+        statement = statement.where(Lead.status == LeadStatus.ACTIVE.value)
     if query:
         pattern = f"%{query.strip()}%"
         statement = statement.where(
@@ -239,3 +272,68 @@ async def list_leads(
         )
     statement = statement.order_by(Lead.created_at.desc()).limit(200)
     return list((await session.execute(statement)).scalars().all())
+
+
+@router.get("/leads/{lead_id}", response_model=LeadResponse)
+async def get_lead(
+    lead_id: uuid.UUID,
+    context: TenantContext = Depends(get_current_tenant_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> Lead:
+    return await _get_lead(session, context.tenant_id, lead_id)
+
+
+@router.patch("/leads/{lead_id}", response_model=LeadResponse)
+async def update_lead(
+    lead_id: uuid.UUID,
+    payload: LeadUpdateRequest,
+    context: TenantContext = Depends(get_current_tenant_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> Lead:
+    lead = await _get_lead(session, context.tenant_id, lead_id)
+    updates = payload.model_dump(exclude_unset=True)
+    if "email" in updates:
+        lead.email = _validate_email(updates.pop("email"))
+    if "phone_number" in updates:
+        phone_number = updates.pop("phone_number").strip()
+        normalized_phone_number = _normalize_phone(phone_number)
+        if normalized_phone_number is None:
+            raise HTTPException(status_code=422, detail="invalid_phone_number")
+        lead.phone_number = phone_number
+        lead.normalized_phone_number = normalized_phone_number
+    for field, value in updates.items():
+        setattr(lead, field, value.value if isinstance(value, LeadManualStatus) else value)
+    lead.updated_by_user_id = context.user_id
+    await _commit(session, "lead_phone_number_already_exists")
+    await session.refresh(lead)
+    return lead
+
+
+@router.post("/leads/{lead_id}/archive", response_model=LeadResponse)
+async def archive_lead(
+    lead_id: uuid.UUID,
+    context: TenantContext = Depends(get_current_tenant_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> Lead:
+    lead = await _get_lead(session, context.tenant_id, lead_id)
+    lead.status = LeadStatus.ARCHIVED.value
+    lead.archived_at = datetime.now(timezone.utc)
+    lead.updated_by_user_id = context.user_id
+    await _commit(session, "lead_archive_conflict")
+    await session.refresh(lead)
+    return lead
+
+
+@router.post("/leads/{lead_id}/restore", response_model=LeadResponse)
+async def restore_lead(
+    lead_id: uuid.UUID,
+    context: TenantContext = Depends(get_current_tenant_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> Lead:
+    lead = await _get_lead(session, context.tenant_id, lead_id)
+    lead.status = LeadStatus.ACTIVE.value
+    lead.archived_at = None
+    lead.updated_by_user_id = context.user_id
+    await _commit(session, "lead_restore_conflict")
+    await session.refresh(lead)
+    return lead

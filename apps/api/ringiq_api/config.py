@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class AppSettings(BaseSettings):
     app_name: str = "RingIQ API"
     environment: str = "local"
+    internal_api_key: str | None = Field(default=None, alias="RINGIQ_INTERNAL_API_KEY")
     cors_allowed_origins_raw: str = Field(
         "http://localhost:3000,http://localhost:3001",
         alias="CORS_ALLOWED_ORIGINS",

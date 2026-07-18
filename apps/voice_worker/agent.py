@@ -92,6 +92,30 @@ async def _emit_pipeline_event(
         logger.warning("Pipeline event logging failed: %s", exc)
 
 
+async def _report_call_result(metadata: dict[str, Any], result_status: str) -> None:
+    call_attempt_id = metadata.get("call_attempt_id")
+    internal_api_key = os.getenv("RINGIQ_INTERNAL_API_KEY")
+    if not call_attempt_id or not internal_api_key:
+        return
+    api_base_url = os.getenv("RINGIQ_API_BASE_URL", DEFAULT_API_BASE_URL).rstrip("/")
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with http.post(
+                f"{api_base_url}/v1/internal/call-attempts/{call_attempt_id}/result",
+                json={"status": result_status},
+                headers={"X-RingIQ-Internal-Key": internal_api_key},
+                timeout=3,
+            ) as response:
+                if response.status >= 300 and response.status != 409:
+                    logger.warning(
+                        "Call result update failed status=%s attempt_id=%s",
+                        response.status,
+                        call_attempt_id,
+                    )
+    except Exception as exc:
+        logger.warning("Call result update failed attempt_id=%s error=%s", call_attempt_id, exc)
+
+
 async def entrypoint(ctx: JobContext) -> None:
     metadata = _metadata(ctx)
     metadata.setdefault("room_name", ctx.room.name)
@@ -253,6 +277,14 @@ async def entrypoint(ctx: JobContext) -> None:
         participant = await ctx.wait_for_participant()
 
     logger.info("SIP participant connected: identity=%s", participant.identity)
+    await _report_call_result(metadata, "connected")
+
+    @ctx.room.on("participant_disconnected")
+    def _on_participant_disconnected(disconnected_participant: Any) -> None:
+        if disconnected_participant.identity != participant.identity:
+            return
+        asyncio.create_task(_report_call_result(metadata, "completed"))
+
     await _emit_pipeline_event(
         metadata,
         stage="participant_connected",

@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { BookOpenText, LayoutDashboard, LogOut, PhoneCall, Settings, UploadCloud } from "lucide-react";
+import { BookOpenText, LayoutDashboard, LogOut, Megaphone, PhoneCall, Settings, UploadCloud } from "lucide-react";
 import { useClerk, useOrganization, useUser } from "@clerk/nextjs";
 import { BrandMark } from "@/components/brand-mark";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: UploadCloud },
+  { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpenText },
   { href: "/calls", label: "Calls", icon: PhoneCall },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -34,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={item.href as Route}
                   className={`flex h-11 items-center gap-3 border-l-2 px-3 text-sm font-bold transition ${
                     isActive
                       ? "border-[#d73a2f] bg-[#f3e8e5] text-[#b72c24]"
@@ -93,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
-                <Link key={item.href} href={item.href} className={`flex h-12 min-w-[4.5rem] flex-1 items-center justify-center gap-2 border-b-2 px-2 text-xs font-bold ${isActive ? "border-[#d73a2f] text-[#b72c24]" : "border-transparent text-[#6d6b64]"}`}>
+                <Link key={item.href} href={item.href as Route} className={`flex h-12 min-w-[4.5rem] flex-1 items-center justify-center gap-2 border-b-2 px-2 text-xs font-bold ${isActive ? "border-[#d73a2f] text-[#b72c24]" : "border-transparent text-[#6d6b64]"}`}>
                   <item.icon className="size-4 shrink-0" aria-hidden />
                   <span className="hidden sm:inline">{item.label}</span>
                 </Link>

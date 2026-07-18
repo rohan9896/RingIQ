@@ -6,6 +6,18 @@ from apps.api.ringiq_api.models.catalog import (
     QuestionAnswerType,
     TemplateStatus,
 )
+from apps.api.ringiq_api.models.campaigns import (
+    CallAttempt,
+    CallAttemptStatus,
+    Campaign,
+    CampaignEnrollment,
+    CampaignStatus,
+    EnrollmentStatus,
+    Job,
+    JobStatus,
+    OutboxEvent,
+    OutboxStatus,
+)
 from apps.api.ringiq_api.models.identity import (
     PlatformRole,
     Tenant,
@@ -18,16 +30,34 @@ from apps.api.ringiq_api.models.knowledge import (
     TenantKnowledgeBaseVersion,
     TenantKnowledgeQuestion,
 )
-from apps.api.ringiq_api.models.leads import Lead, LeadImport, LeadImportRow
+from apps.api.ringiq_api.models.leads import (
+    Lead,
+    LeadImport,
+    LeadImportRow,
+    LeadManualStatus,
+    LeadStatus,
+)
 
 __all__ = [
     "Category",
     "CategoryStatus",
     "CategoryTemplateVersion",
+    "CallAttempt",
+    "CallAttemptStatus",
+    "Campaign",
+    "CampaignEnrollment",
+    "CampaignStatus",
+    "EnrollmentStatus",
+    "Job",
+    "JobStatus",
     "Lead",
     "LeadImport",
     "LeadImportRow",
+    "LeadManualStatus",
+    "LeadStatus",
     "PlatformRole",
+    "OutboxEvent",
+    "OutboxStatus",
     "QnaQuestion",
     "QuestionAnswerType",
     "TemplateStatus",

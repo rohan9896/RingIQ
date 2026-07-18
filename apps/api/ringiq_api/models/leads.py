@@ -1,9 +1,11 @@
 import uuid
+from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import (
     JSON,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -26,11 +28,29 @@ class LeadImportRowStatus(StrEnum):
     DUPLICATE = "duplicate"
 
 
+class LeadStatus(StrEnum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class LeadManualStatus(StrEnum):
+    NEW = "new"
+    IN_PROGRESS = "in_progress"
+    FOLLOW_UP = "follow_up"
+    CLOSED = "closed"
+
+
 class Lead(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "leads"
     __table_args__ = (
         UniqueConstraint("tenant_id", "normalized_phone_number"),
+        CheckConstraint("status IN ('active', 'archived')", name="status_valid"),
+        CheckConstraint(
+            "manual_status IN ('new', 'in_progress', 'follow_up', 'closed')",
+            name="manual_status_valid",
+        ),
         Index("ix_leads_tenant_created_at", "tenant_id", "created_at"),
+        Index("ix_leads_tenant_status", "tenant_id", "status"),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -43,6 +63,19 @@ class Lead(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     attributes_json: Mapped[dict] = mapped_column(
         JSON, nullable=False, default=dict, server_default=text("'{}'")
     )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=LeadStatus.ACTIVE.value,
+        server_default=text("'active'"),
+    )
+    manual_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=LeadManualStatus.NEW.value,
+        server_default=text("'new'"),
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
 

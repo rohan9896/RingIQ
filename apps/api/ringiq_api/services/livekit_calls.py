@@ -89,6 +89,21 @@ class LiveKitCallService:
             message="Demo outbound call requested. The voice worker must be running to handle the conversation.",
         )
 
+    async def create_campaign_call(
+        self,
+        *,
+        phone_number: str,
+        room_name: str,
+        metadata: dict[str, str],
+    ) -> DemoCallResponse:
+        return await self.create_demo_call(
+            DemoCallRequest(
+                phone_number=phone_number,
+                room_name=room_name,
+                metadata={"demo": "false", **metadata},
+            )
+        )
+
     async def _dispatch_agent(
         self,
         lkapi: api.LiveKitAPI,

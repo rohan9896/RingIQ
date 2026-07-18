@@ -1,10 +1,15 @@
 "use client";
 
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import {
   Check,
+  Download,
   FileSpreadsheet,
   Loader2,
+  Megaphone,
   Search,
   TriangleAlert,
   Upload,
@@ -14,6 +19,8 @@ import {
 import { useAuth } from "@clerk/nextjs";
 import {
   createLeadImport,
+  createCampaign,
+  fetchLeadImport,
   fetchLeadImports,
   fetchLeads,
   type Lead,
@@ -73,8 +80,28 @@ function friendlyError(error: unknown) {
   return value.replaceAll("_", " ");
 }
 
+function downloadImportErrors(importDetail: LeadImportDetail) {
+  const rows = importDetail.rows.filter((row) => row.status !== "imported");
+  const headers = ["row_number", "status", "error_code", "error_message", "source_data"];
+  const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const csv = [headers.join(","), ...rows.map((row) => [
+    row.row_number,
+    row.status,
+    row.error_code,
+    row.error_message,
+    JSON.stringify(row.raw_data_json),
+  ].map(escape).join(","))].join("\n");
+  const href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = `${importDetail.filename.replace(/\.csv$/i, "")}-import-errors.csv`;
+  link.click();
+  URL.revokeObjectURL(href);
+}
+
 export function LeadsWorkspace() {
   const { getToken } = useAuth();
+  const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [imports, setImports] = useState<LeadImport[]>([]);
@@ -90,6 +117,8 @@ export function LeadsWorkspace() {
     mapping: Mapping;
   } | null>(null);
   const [result, setResult] = useState<LeadImportDetail | null>(null);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [campaignName, setCampaignName] = useState("");
   const withToken = useCallback(
     async <T,>(callback: (token: string) => Promise<T>) => {
       const token = await getToken();
@@ -196,6 +225,33 @@ export function LeadsWorkspace() {
       setIsLoading(false);
     }
   }
+  async function downloadErrors(importId: string) {
+    try {
+      const detail = await withToken((token) => fetchLeadImport(token, importId));
+      downloadImportErrors(detail);
+    } catch (caught) {
+      setError(friendlyError(caught));
+    }
+  }
+  async function createSelectedCampaign() {
+    if (!campaignName.trim() || !selectedLeadIds.size) return;
+    try {
+      setIsUploading(true);
+      setError(null);
+      const campaign = await withToken((token) => createCampaign(token, {
+        name: campaignName.trim(),
+        lead_ids: [...selectedLeadIds],
+        retry_limit: 3,
+      }));
+      setSelectedLeadIds(new Set());
+      setCampaignName("");
+      router.push(`/campaigns?campaign=${campaign.id}` as Route);
+    } catch (caught) {
+      setError(friendlyError(caught));
+    } finally {
+      setIsUploading(false);
+    }
+  }
   return (
     <div className="mx-auto max-w-6xl">
       <header className="border-b border-[#171714] pb-7">
@@ -256,7 +312,7 @@ export function LeadsWorkspace() {
           upload={upload}
         />
       ) : null}
-      {result ? <ImportResult result={result} /> : null}
+      {result ? <ImportResult onDownloadErrors={downloadImportErrors} result={result} /> : null}
       <section className="mt-7">
         <div className="flex flex-col gap-4 border border-[#171714] bg-[#fffefa] p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -281,13 +337,46 @@ export function LeadsWorkspace() {
             </button>
           </form>
         </div>
+        {selectedLeadIds.size ? (
+          <div className="flex flex-col gap-4 border-x border-b border-[#171714] bg-[#e4e9ee] p-4 sm:flex-row sm:items-center">
+            <div className="min-w-32">
+              <p className="text-sm font-black">{selectedLeadIds.size} selected</p>
+              <p className="mt-1 text-xs text-[#596b7d]">Initial call + 3 retries</p>
+            </div>
+            <input
+              className="field-control min-w-0 flex-1"
+              maxLength={255}
+              onChange={(event) => setCampaignName(event.target.value)}
+              placeholder="Campaign name"
+              value={campaignName}
+            />
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 bg-[#171714] px-4 text-sm font-bold text-white hover:bg-[#d73a2f] disabled:opacity-50"
+              disabled={!campaignName.trim() || isUploading}
+              onClick={() => void createSelectedCampaign()}
+              type="button"
+            >
+              {isUploading ? <Loader2 className="size-4 animate-spin" /> : <Megaphone className="size-4" />}
+              Create campaign
+            </button>
+          </div>
+        ) : null}
         {isLoading ? (
           <div className="flex min-h-48 items-center justify-center border-x border-b border-[#d8d5cc] bg-[#fffefa] text-sm font-bold text-[#6d6b64]">
             <Loader2 className="mr-3 size-5 animate-spin" />
             Loading leads
           </div>
         ) : (
-          <LeadTable leads={leads} />
+          <LeadTable
+            leads={leads}
+            onToggle={(leadId, checked) => setSelectedLeadIds((current) => {
+              const next = new Set(current);
+              if (checked) next.add(leadId);
+              else next.delete(leadId);
+              return next;
+            })}
+            selectedLeadIds={selectedLeadIds}
+          />
         )}
       </section>
       <section className="mt-7 border border-[#d8d5cc] bg-[#fffefa]">
@@ -297,7 +386,7 @@ export function LeadsWorkspace() {
         <div className="divide-y divide-[#e3e0d8]">
           {imports.map((item) => (
             <div
-              className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_repeat(3,100px)] sm:items-center"
+              className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_repeat(3,100px)_auto] sm:items-center"
               key={item.id}
             >
               <div>
@@ -321,6 +410,17 @@ export function LeadsWorkspace() {
                 value={item.duplicate_rows}
                 tone="neutral"
               />
+              {item.invalid_rows + item.duplicate_rows > 0 ? (
+                <button
+                  className="inline-flex h-8 items-center justify-center gap-2 border border-[#d8d5cc] px-2 text-xs font-bold hover:border-[#171714]"
+                  onClick={() => void downloadErrors(item.id)}
+                  title="Download import errors"
+                  type="button"
+                >
+                  <Download className="size-3" />
+                  Errors
+                </button>
+              ) : null}
             </div>
           ))}
           {!imports.length ? (
@@ -437,7 +537,13 @@ function ImportMapper({
     </section>
   );
 }
-function ImportResult({ result }: { result: LeadImportDetail }) {
+function ImportResult({
+  onDownloadErrors,
+  result,
+}: {
+  onDownloadErrors: (result: LeadImportDetail) => void;
+  result: LeadImportDetail;
+}) {
   return (
     <section className="mt-7 border border-[#aeb6a7] bg-[#eef0ea]">
       <div className="flex items-start gap-3 p-5">
@@ -466,7 +572,17 @@ function ImportResult({ result }: { result: LeadImportDetail }) {
       </div>
       {result.rows.some((row) => row.status !== "imported") ? (
         <div className="border-t border-[#aeb6a7] bg-[#fffefa] p-5">
-          <p className="text-sm font-bold">Rows needing attention</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-bold">Rows needing attention</p>
+            <button
+              className="inline-flex h-8 items-center gap-2 border border-[#171714] px-2 text-xs font-bold hover:bg-[#f0eee8]"
+              onClick={() => onDownloadErrors(result)}
+              type="button"
+            >
+              <Download className="size-3" />
+              Download errors
+            </button>
+          </div>
           <div className="mt-3 space-y-2">
             {result.rows
               .filter((row) => row.status !== "imported")
@@ -507,20 +623,39 @@ function ImportMetric({
     </div>
   );
 }
-function LeadTable({ leads }: { leads: Lead[] }) {
+function LeadTable({
+  leads,
+  onToggle,
+  selectedLeadIds,
+}: {
+  leads: Lead[];
+  onToggle: (leadId: string, checked: boolean) => void;
+  selectedLeadIds: Set<string>;
+}) {
   return (
     <div className="overflow-x-auto border-x border-b border-[#d8d5cc] bg-[#fffefa]">
       <table className="w-full min-w-[640px] text-left">
         <thead className="border-b border-[#d8d5cc] bg-[#f7f6f2] text-xs uppercase text-[#6d6b64]">
           <tr>
+            <th className="w-12 px-4 py-3"><span className="sr-only">Select</span></th>
             <th className="px-5 py-3 font-bold">Lead</th>
             <th className="px-5 py-3 font-bold">Contact</th>
             <th className="px-5 py-3 font-bold">Optional details</th>
+            <th className="px-5 py-3 font-bold">Sales work</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#e3e0d8]">
           {leads.map((lead) => (
             <tr key={lead.id}>
+              <td className="px-4 py-4">
+                <input
+                  checked={selectedLeadIds.has(lead.id)}
+                  className="size-4 accent-[#d73a2f]"
+                  onChange={(event) => onToggle(lead.id, event.target.checked)}
+                  title={`Select ${lead.name}`}
+                  type="checkbox"
+                />
+              </td>
               <td className="px-5 py-4">
                 <p className="font-bold">{lead.name}</p>
                 <p className="mt-1 text-xs text-[#6d6b64]">
@@ -540,13 +675,21 @@ function LeadTable({ leads }: { leads: Lead[] }) {
                   </span>
                 ))}
               </td>
+              <td className="px-5 py-4">
+                <Link
+                  className="inline-flex h-8 items-center border border-[#d8d5cc] px-3 text-xs font-bold hover:border-[#171714]"
+                  href={`/leads/${lead.id}` as Route}
+                >
+                  {lead.manual_status.replaceAll("_", " ")}
+                </Link>
+              </td>
             </tr>
           ))}
           {!leads.length ? (
             <tr>
               <td
                 className="px-5 py-10 text-center text-sm text-[#6d6b64]"
-                colSpan={3}
+                colSpan={5}
               >
                 <UsersRound className="mx-auto mb-3 size-5" />
                 No leads match this view. Import a CSV to begin.

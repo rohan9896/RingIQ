@@ -108,3 +108,58 @@ def test_leads_are_scoped_to_the_active_tenant(lead_client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_tenant_can_manage_a_lead_and_archive_it(lead_client: TestClient) -> None:
+    imported = lead_client.post("/v1/lead-imports", json={
+        "filename": "one.csv",
+        "csv_content": "Name,Email,Phone,Area\nAsha,asha@example.com,9898634576,Gurugram\n",
+    })
+    lead_id = imported.json()["rows"][0]["lead_id"]
+
+    detail = lead_client.get(f"/v1/leads/{lead_id}")
+    assert detail.status_code == 200
+    assert detail.json()["manual_status"] == "new"
+    assert detail.json()["attributes_json"] == {"area": "Gurugram"}
+
+    updated = lead_client.patch(f"/v1/leads/{lead_id}", json={
+        "name": "Asha Sharma",
+        "email": "asha.sharma@example.com",
+        "phone_number": "+91 98986 34576",
+        "attributes_json": {"area_of_interest": "Noida"},
+        "manual_status": "follow_up",
+    })
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "Asha Sharma"
+    assert updated.json()["normalized_phone_number"] == "+919898634576"
+    assert updated.json()["manual_status"] == "follow_up"
+    assert updated.json()["attributes_json"] == {"area_of_interest": "Noida"}
+
+    archived = lead_client.post(f"/v1/leads/{lead_id}/archive")
+    assert archived.status_code == 200
+    assert archived.json()["status"] == "archived"
+    assert archived.json()["archived_at"] is not None
+    assert lead_client.get("/v1/leads").json() == []
+    assert lead_client.get("/v1/leads?include_archived=true").json()[0]["id"] == lead_id
+
+    restored = lead_client.post(f"/v1/leads/{lead_id}/restore")
+    assert restored.status_code == 200
+    assert restored.json()["status"] == "active"
+    assert restored.json()["archived_at"] is None
+
+
+def test_tenant_cannot_manage_another_tenant_lead(lead_client: TestClient) -> None:
+    imported = lead_client.post("/v1/lead-imports", json={
+        "filename": "one.csv",
+        "csv_content": "Name,Email,Phone\nAsha,asha@example.com,9898634576\n",
+    })
+    lead_id = imported.json()["rows"][0]["lead_id"]
+    lead_client.app.dependency_overrides[get_current_tenant_context] = lambda: TenantContext(
+        tenant_id=uuid.uuid4(), user_id=uuid.uuid4(), membership_id=uuid.uuid4(),
+        clerk_organization_id="org_other", clerk_user_id="user_other", clerk_membership_id="orgmem_other",
+        tenant_name="Other Realty", tenant_slug="other-realty", timezone="Asia/Kolkata",
+    )
+
+    assert lead_client.get(f"/v1/leads/{lead_id}").status_code == 404
+    assert lead_client.patch(f"/v1/leads/{lead_id}", json={"manual_status": "closed"}).status_code == 404
+    assert lead_client.post(f"/v1/leads/{lead_id}/archive").status_code == 404

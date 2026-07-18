@@ -4,7 +4,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from apps.api.ringiq_api.models.leads import LeadImportRowStatus, LeadImportStatus
+from apps.api.ringiq_api.models.leads import (
+    LeadImportRowStatus,
+    LeadImportStatus,
+    LeadManualStatus,
+    LeadStatus,
+)
 
 
 class LeadImportCreateRequest(BaseModel):
@@ -22,8 +27,19 @@ class LeadResponse(BaseModel):
     phone_number: str
     normalized_phone_number: str
     attributes_json: dict[str, Any]
+    status: LeadStatus
+    manual_status: LeadManualStatus
+    archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class LeadUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: str | None = Field(default=None, min_length=3, max_length=320)
+    phone_number: str | None = Field(default=None, min_length=5, max_length=32)
+    attributes_json: dict[str, Any] | None = None
+    manual_status: LeadManualStatus | None = None
 
 
 class LeadImportRowResponse(BaseModel):
