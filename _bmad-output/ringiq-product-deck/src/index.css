@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 布局安全区域变量 ===== */
+:root {
+  --nav-height: 4rem;
+  --nav-margin: 1.5rem;
+  --nav-safe-area: calc(var(--nav-height) + var(--nav-margin) + 1rem);
+  --slide-padding: 2.5rem;
+  --card-gap: 1.5rem;
+}
+
+@media (max-width: 1920px) {
+  :root {
+    --slide-padding: 2rem;
+    --card-gap: 1rem;
+  }
+}
+
+@media (min-width: 2560px) {
+  :root {
+    --slide-padding: 3rem;
+    --card-gap: 2rem;
+  }
+}
+
+/* ===== 全局重置 ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+html {
+  font-size: clamp(14px, 1vw, 24px);
+}
+
+body {
+  font-family: var(--font-body, 'Work Sans', sans-serif);
+  background-color: #0f1c2e;
+  color: #f3f9ff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== 字体 ===== */
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-display, 'Outfit', sans-serif);
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ===== 滚动条 ===== */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
+
+/* ===== 玻璃拟态 ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* ===== 幻灯片布局 ===== */
+.slide-page {
+  height: 100% !important;
+  max-height: 100% !important;
+  width: 100%;
+  padding: var(--slide-padding) !important;
+  padding-bottom: var(--nav-safe-area) !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.slide-page > * {
+  max-height: 100%;
+  box-sizing: border-box;
+}
+
+.slide-page [class*="h-screen"] {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+.slide-content {
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* ===== 网格布局 ===== */
+.grid-auto-fit {
+  display: grid;
+  gap: var(--card-gap);
+}
+
+.grid-2x2 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.grid-1x3 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr;
+}
+
+.grid-2x3 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+/* ===== 卡片自适应 ===== */
+.card-fit {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.card-fit > * {
+  flex-shrink: 0;
+}
+
+.card-fit > .card-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
