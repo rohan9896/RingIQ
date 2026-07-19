@@ -1,6 +1,6 @@
 # RingIQ Staging Deployment
 
-Status: backend Heroku deployment in progress; frontend and LiveKit Cloud deferred to the next pass.
+Status: backend Heroku deployment complete; frontend and LiveKit Cloud deferred to the next pass.
 
 ## Target topology
 
@@ -54,6 +54,15 @@ not belong on the Heroku API app.
 
 - Pre-deployment API baseline: 95 tests passing.
 - Pre-deployment Next.js production build: passing.
-- Backend deployment: pending.
+- Backend app: `ringiq-staging-api` in Heroku EU on Heroku-24.
+- Backend URL: `https://ringiq-staging-api-3695f29fe3f8.herokuapp.com`.
+- Deployed code: `0e65ee9` with successful release migration.
+- Database: Essential-0, Alembic head `20260719_0009`, 20 public tables.
+- Formation: `web=1:Basic`, `worker=1:Basic`.
+- Health check: `GET /health` returned `200 {"status":"ok"}`.
+- Staging database password and internal API key were rotated after verification.
+- Rotate the reused Clerk test secret, LiveKit API secret, and recording-storage
+  access key before the frontend/voice pass because a Heroku status command
+  unexpectedly displayed config values in its output.
 - Frontend deployment: deferred.
 - LiveKit agent deployment: deferred.
