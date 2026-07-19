@@ -14,8 +14,13 @@ def normalize_database_url(value: str, *, environment: str) -> str:
         url = url.set(drivername="postgresql+asyncpg")
     if url.drivername != "postgresql+asyncpg":
         raise ValueError("DATABASE_URL must use PostgreSQL with the asyncpg dialect")
-    if environment.lower() not in {"local", "test"} and "sslmode" not in url.query:
-        url = url.update_query_dict({"sslmode": "require"})
+    query = dict(url.query)
+    ssl_mode = query.pop("sslmode", None)
+    if ssl_mode is not None and "ssl" not in query:
+        query["ssl"] = ssl_mode
+    if environment.lower() not in {"local", "test"} and "ssl" not in query:
+        query["ssl"] = "require"
+    url = url.set(query=query)
     return url.render_as_string(hide_password=False)
 
 

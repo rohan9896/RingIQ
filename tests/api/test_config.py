@@ -1,5 +1,6 @@
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from apps.api.ringiq_api.config import AppSettings, VoiceSettings, normalize_database_url
 from tests.api.helpers import make_settings
@@ -60,8 +61,13 @@ def test_database_url_normalizes_heroku_scheme_and_requires_ssl() -> None:
 
     assert value == (
         "postgresql+asyncpg://ringiq:secret@db.example.com:5432/ringiq"
-        "?sslmode=require"
+        "?ssl=require"
     )
+    engine = create_async_engine(value)
+    _args, connect_kwargs = engine.sync_engine.dialect.create_connect_args(
+        engine.sync_engine.url
+    )
+    assert connect_kwargs["ssl"] == "require"
 
 
 def test_database_url_preserves_local_and_existing_query_options() -> None:
@@ -75,7 +81,7 @@ def test_database_url_preserves_local_and_existing_query_options() -> None:
     )
 
     assert local == "postgresql+asyncpg://ringiq:ringiq@127.0.0.1:5432/ringiq"
-    assert hosted.endswith("?sslmode=verify-full")
+    assert hosted.endswith("?ssl=verify-full")
 
 
 def test_database_url_rejects_non_postgres_dialects() -> None:
