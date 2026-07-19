@@ -1,6 +1,6 @@
 # RingIQ Staging Deployment
 
-Status: backend Heroku deployment complete; self-hosted LiveKit voice worker deployment in progress; frontend deferred.
+Status: backend and self-hosted LiveKit voice worker deployments complete; frontend deferred.
 
 ## Target topology
 
@@ -62,9 +62,9 @@ storage credentials are configured.
 - Pre-deployment Next.js production build: passing.
 - Backend app: `ringiq-staging-api` in Heroku EU on Heroku-24.
 - Backend URL: `https://ringiq-staging-api-3695f29fe3f8.herokuapp.com`.
-- Deployed code: `0e65ee9` with successful release migration.
+- Deployed code: `6466787` with successful release migration (Heroku v14).
 - Database: Essential-0, Alembic head `20260719_0009`, 20 public tables.
-- Formation: `web=1:Basic`, `worker=1:Basic`.
+- Formation: `web=1:Basic`, `worker=1:Basic`, `voice=1:Basic`.
 - Health check: `GET /health` returned `200 {"status":"ok"}`.
 - Staging database password and internal API key were rotated after verification.
 - Rotate the reused Clerk test secret, LiveKit API secret, and recording-storage
@@ -76,6 +76,8 @@ storage credentials are configured.
   for both native and `linux/amd64` targets.
 - LiveKit managed deployment: unavailable because Agent Deployments are not
   enabled for this project; pending deployment `CA_YHg7RnuTdMBG` was not built.
-- Self-hosted LiveKit voice dyno: deployment in progress on Heroku, connected to
-  the LiveKit `ap-south` / Mumbai project as `ringiq-staging-agent`.
+- Self-hosted LiveKit voice dyno: running on Heroku and registered as
+  `ringiq-staging-agent` (worker ID `AW_VQrLv8JfbMcx`). The EU-hosted dyno
+  connected through LiveKit's UK edge; use a Mumbai-hosted compute target before
+  production latency testing for Indian callers.
 - Recording: disabled and the previously exposed storage values removed.
