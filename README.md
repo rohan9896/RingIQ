@@ -4,6 +4,13 @@ RingIQ is a B2B AI voice platform that automatically calls, qualifies, and prior
 # Slides Deck link
 https://ringiq-product-deck.vercel.app
 
+# Live URL
+https://ringiq-staging-web.vercel.app/
+
+# Demo Creds
+rohang9896@gmail.com
+SYvXiXpxmj7ZwDg
+
 ## UV Setup
 
 This repository is now ready for `uv`-based development.
