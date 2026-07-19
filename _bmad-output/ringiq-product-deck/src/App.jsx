@@ -11,6 +11,8 @@ import Slide07 from './slides/07-campaigns';
 import Slide08 from './slides/08-voice-ai';
 import Slide09 from './slides/09-intelligence';
 import Slide10 from './slides/10-platform';
+import Slide11 from './slides/11-tech-stack';
+import Slide12 from './slides/12-architecture';
 
 const SLIDES = [
   Slide01,
@@ -23,6 +25,8 @@ const SLIDES = [
   Slide08,
   Slide09,
   Slide10,
+  Slide11,
+  Slide12,
 ];
 
 const NAV_ITEMS = [
@@ -36,6 +40,8 @@ const NAV_ITEMS = [
   { slideIndex: 7, label: 'Voice AI' },
   { slideIndex: 8, label: 'Intelligence' },
   { slideIndex: 9, label: 'Platform' },
+  { slideIndex: 10, label: 'Tech Stack' },
+  { slideIndex: 11, label: 'Architecture' },
 ];
 
 // Slide transition variants
