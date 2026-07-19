@@ -4,6 +4,19 @@ from typing import Optional
 from pydantic import Field
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+
+
+def normalize_database_url(value: str, *, environment: str) -> str:
+    """Return a SQLAlchemy asyncpg URL suitable for local or hosted Postgres."""
+    url = make_url(value)
+    if url.drivername in {"postgres", "postgresql"}:
+        url = url.set(drivername="postgresql+asyncpg")
+    if url.drivername != "postgresql+asyncpg":
+        raise ValueError("DATABASE_URL must use PostgreSQL with the asyncpg dialect")
+    if environment.lower() not in {"local", "test"} and "sslmode" not in url.query:
+        url = url.update_query_dict({"sslmode": "require"})
+    return url.render_as_string(hide_password=False)
 
 
 class AppSettings(BaseSettings):
@@ -79,6 +92,10 @@ class IdentitySettings(AppSettings):
     def validate_clerk_settings(self) -> "IdentitySettings":
         if not self.clerk_authorized_parties:
             raise ValueError("CLERK_AUTHORIZED_PARTIES must include at least one origin")
+        self.database_url = normalize_database_url(
+            self.database_url,
+            environment=self.environment,
+        )
         return self
 
     @property

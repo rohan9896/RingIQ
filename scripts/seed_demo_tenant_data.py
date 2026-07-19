@@ -49,6 +49,7 @@ CATEGORY_KEY = "real_estate"
 TEMPLATE_TITLE = "Real Estate Starter Knowledge"
 DEMO_IMPORT_FILENAME = "ringiq-demo-real-estate-leads.csv"
 DEMO_CAMPAIGN_NAME = "Demo Real Estate Outreach"
+DEMO_BUSINESS_NAME_TOKEN = "{business_name}"
 
 LEAD_SCHEMA = {
     "required": ["name", "email", "phone_number"],
@@ -86,7 +87,7 @@ TEMPLATE_QUESTIONS = [
         "required": True,
         "display_order": 0,
         "answer": (
-            "RingIQ demo brokerage helps home buyers discover ready-to-move and "
+            f"{DEMO_BUSINESS_NAME_TOKEN} helps home buyers discover ready-to-move and "
             "under-construction residential projects across Gurgaon and Noida. "
             "The team focuses on first-home buyers, working professionals, and "
             "families upgrading from rented apartments. The assistant should help "
@@ -281,7 +282,7 @@ DEMO_LEADS = [
     {
         "name": "Aarav Mehta",
         "email": "aarav.mehta@example.com",
-        "phone_number": "+919900000101",
+        "phone_number": "+12025550101",
         "area_of_interest": "Gurgaon Sector 65",
         "budget_range": "1.5-2 crore",
         "property_type": "Apartment",
@@ -290,7 +291,7 @@ DEMO_LEADS = [
     {
         "name": "Nisha Kapoor",
         "email": "nisha.kapoor@example.com",
-        "phone_number": "+919900000102",
+        "phone_number": "+12025550102",
         "area_of_interest": "Dwarka Expressway",
         "budget_range": "90 lakh-1.2 crore",
         "property_type": "Apartment",
@@ -299,7 +300,7 @@ DEMO_LEADS = [
     {
         "name": "Kabir Sethi",
         "email": "kabir.sethi@example.com",
-        "phone_number": "+919900000103",
+        "phone_number": "+12025550103",
         "area_of_interest": "Noida Sector 150",
         "budget_range": "1-1.4 crore",
         "property_type": "Apartment",
@@ -308,7 +309,7 @@ DEMO_LEADS = [
     {
         "name": "Meera Bansal",
         "email": "meera.bansal@example.com",
-        "phone_number": "+919900000104",
+        "phone_number": "+12025550104",
         "area_of_interest": "Noida Extension",
         "budget_range": "80 lakh-1 crore",
         "property_type": "Apartment",
@@ -317,7 +318,7 @@ DEMO_LEADS = [
     {
         "name": "Rohan Malhotra",
         "email": "rohan.malhotra@example.com",
-        "phone_number": "+919900000105",
+        "phone_number": "+12025550105",
         "area_of_interest": "Golf Course Extension Road",
         "budget_range": "2-3 crore",
         "property_type": "Villa",
@@ -576,6 +577,9 @@ async def ensure_published_tenant_kb(
         ).scalars()
     }
     for question_data in TEMPLATE_QUESTIONS:
+        answer = question_data["answer"]
+        if isinstance(answer, str):
+            answer = answer.replace(DEMO_BUSINESS_NAME_TOKEN, tenant.name)
         question = existing_questions.get(question_data["key"])
         if question is None:
             session.add(
@@ -589,7 +593,7 @@ async def ensure_published_tenant_kb(
                     display_order=question_data["display_order"],
                     validation_json={},
                     options_json=None,
-                    answer_value_json=question_data["answer"],
+                    answer_value_json=answer,
                 )
             )
         else:
@@ -600,7 +604,7 @@ async def ensure_published_tenant_kb(
             question.display_order = question_data["display_order"]
             question.validation_json = {}
             question.options_json = None
-            question.answer_value_json = question_data["answer"]
+            question.answer_value_json = answer
 
     tenant.primary_category_id = category.id
     return active_version
@@ -703,7 +707,7 @@ async def ensure_demo_leads(session, tenant: Tenant, user: User) -> tuple[LeadIm
     return lead_import, leads
 
 
-async def ensure_ready_campaign(
+async def ensure_demo_campaign(
     session,
     tenant: Tenant,
     user: User,
@@ -722,7 +726,7 @@ async def ensure_ready_campaign(
         campaign = Campaign(
             tenant_id=tenant.id,
             name=DEMO_CAMPAIGN_NAME,
-            status=CampaignStatus.READY.value,
+            status=CampaignStatus.DRAFT.value,
             source_import_id=lead_import.id,
             knowledge_base_version_id=knowledge_base_version.id,
             retry_limit=3,
@@ -733,7 +737,7 @@ async def ensure_ready_campaign(
         session.add(campaign)
         await session.flush()
     else:
-        campaign.status = CampaignStatus.READY.value
+        campaign.status = CampaignStatus.DRAFT.value
         campaign.source_import_id = lead_import.id
         campaign.knowledge_base_version_id = knowledge_base_version.id
         campaign.retry_limit = 3
@@ -773,7 +777,7 @@ async def seed_demo_data(args: argparse.Namespace) -> None:
             template,
         )
         lead_import, leads = await ensure_demo_leads(session, tenant, user)
-        campaign = await ensure_ready_campaign(
+        campaign = await ensure_demo_campaign(
             session,
             tenant,
             user,

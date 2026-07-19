@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from apps.api.ringiq_api.config import AppSettings, VoiceSettings
+from apps.api.ringiq_api.config import AppSettings, VoiceSettings, normalize_database_url
 from tests.api.helpers import make_settings
 
 
@@ -50,3 +50,34 @@ def test_cors_origins_are_trimmed_and_empty_values_removed() -> None:
         "http://localhost:3000",
         "https://ringiq.example",
     ]
+
+
+def test_database_url_normalizes_heroku_scheme_and_requires_ssl() -> None:
+    value = normalize_database_url(
+        "postgres://ringiq:secret@db.example.com:5432/ringiq",
+        environment="staging",
+    )
+
+    assert value == (
+        "postgresql+asyncpg://ringiq:secret@db.example.com:5432/ringiq"
+        "?sslmode=require"
+    )
+
+
+def test_database_url_preserves_local_and_existing_query_options() -> None:
+    local = normalize_database_url(
+        "postgresql+asyncpg://ringiq:ringiq@127.0.0.1:5432/ringiq",
+        environment="local",
+    )
+    hosted = normalize_database_url(
+        "postgresql://ringiq:secret@db.example.com/ringiq?sslmode=verify-full",
+        environment="production",
+    )
+
+    assert local == "postgresql+asyncpg://ringiq:ringiq@127.0.0.1:5432/ringiq"
+    assert hosted.endswith("?sslmode=verify-full")
+
+
+def test_database_url_rejects_non_postgres_dialects() -> None:
+    with pytest.raises(ValueError, match="PostgreSQL"):
+        normalize_database_url("sqlite:///ringiq.db", environment="local")

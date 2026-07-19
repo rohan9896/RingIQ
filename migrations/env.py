@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from apps.api.ringiq_api.db.base import Base
 from apps.api.ringiq_api import models  # noqa: F401
+from apps.api.ringiq_api.config import normalize_database_url
 
 load_dotenv()
 
@@ -20,6 +21,10 @@ if config.config_file_name is not None:
 database_url = os.environ.get("DATABASE_URL")
 if not database_url:
     raise RuntimeError("DATABASE_URL is required to run migrations")
+database_url = normalize_database_url(
+    database_url,
+    environment=os.environ.get("ENVIRONMENT", "local"),
+)
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
