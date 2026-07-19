@@ -10,6 +10,8 @@ import {
   FileSpreadsheet,
   Loader2,
   Megaphone,
+  PhoneCall,
+  Plus,
   Search,
   TriangleAlert,
   Upload,
@@ -20,6 +22,8 @@ import { useAuth } from "@clerk/nextjs";
 import {
   createLeadImport,
   createCampaign,
+  createLead,
+  callLeadNow,
   fetchLeadImport,
   fetchLeadImports,
   fetchLeads,
@@ -119,6 +123,9 @@ export function LeadsWorkspace() {
   const [result, setResult] = useState<LeadImportDetail | null>(null);
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [campaignName, setCampaignName] = useState("");
+  const [showManualLead, setShowManualLead] = useState(false);
+  const [manualLead, setManualLead] = useState({ name: "", email: "", phone_number: "", attributes: "{}" });
+  const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
   const withToken = useCallback(
     async <T,>(callback: (token: string) => Promise<T>) => {
       const token = await getToken();
@@ -252,6 +259,49 @@ export function LeadsWorkspace() {
       setIsUploading(false);
     }
   }
+  async function addManualLead(event: React.FormEvent) {
+    event.preventDefault();
+    let attributesJson: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(manualLead.attributes);
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error();
+      attributesJson = parsed as Record<string, unknown>;
+    } catch {
+      setError("Optional details must be a valid JSON object.");
+      return;
+    }
+    try {
+      setIsUploading(true);
+      setError(null);
+      const lead = await withToken((token) => createLead(token, {
+        name: manualLead.name,
+        email: manualLead.email,
+        phone_number: manualLead.phone_number,
+        attributes_json: attributesJson,
+      }));
+      setManualLead({ name: "", email: "", phone_number: "", attributes: "{}" });
+      setShowManualLead(false);
+      await load(query);
+      setNotice(`${lead.name} was added.`);
+    } catch (caught) {
+      setError(friendlyError(caught));
+    } finally {
+      setIsUploading(false);
+    }
+  }
+  async function callNow(lead: Lead) {
+    try {
+      setCallingLeadId(lead.id);
+      setError(null);
+      const campaign = await withToken((token) => callLeadNow(token, lead.id));
+      setNotice(`Call to ${lead.name} queued.`);
+      router.push(`/campaigns?campaign=${campaign.id}` as Route);
+    } catch (caught) {
+      setError(friendlyError(caught));
+    } finally {
+      setCallingLeadId(null);
+    }
+  }
   return (
     <div className="mx-auto max-w-6xl">
       <header className="border-b border-[#171714] pb-7">
@@ -267,14 +317,7 @@ export function LeadsWorkspace() {
               explanation.
             </p>
           </div>
-          <button
-            className="inline-flex h-10 items-center gap-2 bg-[#171714] px-4 text-sm font-bold text-white hover:bg-[#d73a2f]"
-            onClick={() => fileInput.current?.click()}
-            type="button"
-          >
-            <Upload className="size-4" />
-            Import CSV
-          </button>
+          <div className="flex gap-2"><button className="inline-flex size-10 items-center justify-center border border-[#171714] hover:bg-[#f0eee8]" onClick={() => setShowManualLead((value) => !value)} title="Add lead" type="button"><Plus className="size-4" /></button><button className="inline-flex h-10 items-center gap-2 bg-[#171714] px-4 text-sm font-bold text-white hover:bg-[#d73a2f]" onClick={() => fileInput.current?.click()} type="button"><Upload className="size-4" />Import CSV</button></div>
           <input
             accept=".csv,text/csv"
             className="hidden"
@@ -294,6 +337,7 @@ export function LeadsWorkspace() {
           onDismiss={() => setNotice(null)}
         />
       ) : null}
+      {showManualLead ? <form className="mt-7 border border-[#171714] bg-[#fffefa]" onSubmit={addManualLead}><div className="border-b border-[#171714] p-5"><p className="utility-label !text-[#d73a2f]">New lead</p><h2 className="mt-2 text-xl font-black">Add one person</h2></div><div className="grid gap-4 p-5 md:grid-cols-3"><label className="text-sm font-bold">Name<input className="field-control mt-2" onChange={(event) => setManualLead((current) => ({ ...current, name: event.target.value }))} required value={manualLead.name} /></label><label className="text-sm font-bold">Email<input className="field-control mt-2" onChange={(event) => setManualLead((current) => ({ ...current, email: event.target.value }))} required type="email" value={manualLead.email} /></label><label className="text-sm font-bold">Phone number<input className="field-control mt-2" onChange={(event) => setManualLead((current) => ({ ...current, phone_number: event.target.value }))} placeholder="+919876543210" required value={manualLead.phone_number} /></label><label className="text-sm font-bold md:col-span-3">Optional details<textarea className="field-control mt-2 min-h-24 font-mono text-xs" onChange={(event) => setManualLead((current) => ({ ...current, attributes: event.target.value }))} spellCheck={false} value={manualLead.attributes} /></label></div><div className="flex justify-end gap-2 border-t border-[#d8d5cc] p-5"><button className="h-10 px-4 text-sm font-bold hover:bg-[#f0eee8]" onClick={() => setShowManualLead(false)} type="button">Cancel</button><button className="h-10 bg-[#171714] px-4 text-sm font-bold text-white disabled:opacity-50" disabled={isUploading} type="submit">{isUploading ? "Adding" : "Add lead"}</button></div></form> : null}
       {upload ? (
         <ImportMapper
           isUploading={isUploading}
@@ -368,7 +412,9 @@ export function LeadsWorkspace() {
           </div>
         ) : (
           <LeadTable
+            callingLeadId={callingLeadId}
             leads={leads}
+            onCallNow={(lead) => void callNow(lead)}
             onToggle={(leadId, checked) => setSelectedLeadIds((current) => {
               const next = new Set(current);
               if (checked) next.add(leadId);
@@ -624,11 +670,15 @@ function ImportMetric({
   );
 }
 function LeadTable({
+  callingLeadId,
   leads,
+  onCallNow,
   onToggle,
   selectedLeadIds,
 }: {
+  callingLeadId: string | null;
   leads: Lead[];
+  onCallNow: (lead: Lead) => void;
   onToggle: (leadId: string, checked: boolean) => void;
   selectedLeadIds: Set<string>;
 }) {
@@ -641,7 +691,7 @@ function LeadTable({
             <th className="px-5 py-3 font-bold">Lead</th>
             <th className="px-5 py-3 font-bold">Contact</th>
             <th className="px-5 py-3 font-bold">Optional details</th>
-            <th className="px-5 py-3 font-bold">Sales work</th>
+            <th className="px-5 py-3 font-bold">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#e3e0d8]">
@@ -676,12 +726,7 @@ function LeadTable({
                 ))}
               </td>
               <td className="px-5 py-4">
-                <Link
-                  className="inline-flex h-8 items-center border border-[#d8d5cc] px-3 text-xs font-bold hover:border-[#171714]"
-                  href={`/leads/${lead.id}` as Route}
-                >
-                  {lead.manual_status.replaceAll("_", " ")}
-                </Link>
+                <div className="flex gap-2"><button className="inline-flex size-8 items-center justify-center bg-[#171714] text-white hover:bg-[#d73a2f] disabled:opacity-50" disabled={callingLeadId !== null} onClick={() => onCallNow(lead)} title={`Call ${lead.name} now`} type="button">{callingLeadId === lead.id ? <Loader2 className="size-3 animate-spin" /> : <PhoneCall className="size-3" />}</button><Link className="inline-flex h-8 items-center border border-[#d8d5cc] px-3 text-xs font-bold hover:border-[#171714]" href={`/leads/${lead.id}` as Route}>{lead.manual_status.replaceAll("_", " ")}</Link></div>
               </td>
             </tr>
           ))}

@@ -20,6 +20,7 @@ from apps.api.ringiq_api.models.campaigns import (
     Job,
     JobStatus,
 )
+from apps.api.ringiq_api.models.identity import Tenant
 from apps.api.ringiq_api.models.leads import Lead, LeadImport, LeadStatus
 from apps.api.ringiq_api.schemas.campaigns import (
     CallAttemptResponse,
@@ -220,6 +221,57 @@ async def get_campaign(
 ) -> CampaignDetailResponse:
     campaign = await _require_campaign(session, context.tenant_id, campaign_id)
     return await _campaign_detail_response(session, campaign)
+
+
+@router.post("/leads/{lead_id}/call-now", response_model=CampaignDetailResponse, status_code=201)
+async def call_lead_now(
+    lead_id: uuid.UUID,
+    context: TenantContext = Depends(get_current_tenant_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> CampaignDetailResponse:
+    lead = (
+        await session.execute(
+            select(Lead).where(
+                Lead.id == lead_id,
+                Lead.tenant_id == context.tenant_id,
+                Lead.status == LeadStatus.ACTIVE.value,
+            )
+        )
+    ).scalar_one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="lead_not_found")
+    tenant = await session.get(Tenant, context.tenant_id)
+    if tenant is None or tenant.primary_category_id is None:
+        raise HTTPException(status_code=422, detail={"code": "call_not_ready", "blockers": ["organization_category_required"]})
+
+    campaign = Campaign(
+        tenant_id=context.tenant_id,
+        name=f"Call now: {lead.name}",
+        retry_limit=0,
+        retry_policy_json={"mode": "manual"},
+        created_by_user_id=context.user_id,
+        updated_by_user_id=context.user_id,
+    )
+    session.add(campaign)
+    await session.flush()
+    session.add(CampaignEnrollment(tenant_id=context.tenant_id, campaign_id=campaign.id, lead_id=lead.id))
+    await session.flush()
+    campaign = await _require_campaign(session, context.tenant_id, campaign.id)
+    blockers, active_version = await campaign_readiness(session, campaign)
+    if active_version is not None and active_version.category_id != tenant.primary_category_id:
+        blockers.append("knowledge_base_category_mismatch")
+    if blockers or active_version is None:
+        await session.rollback()
+        raise HTTPException(status_code=422, detail={"code": "call_not_ready", "blockers": blockers})
+    campaign.status = CampaignStatus.RUNNING.value
+    campaign.knowledge_base_version_id = active_version.id
+    campaign.started_at = utcnow()
+    await queue_campaign(session, campaign)
+    add_outbox_event(session, campaign, "manual_call.started", {"lead_id": str(lead.id)})
+    await _commit(session, "manual_call_create_conflict")
+    return await _campaign_detail_response(
+        session, await _require_campaign(session, context.tenant_id, campaign.id)
+    )
 
 
 @router.post("/campaigns/{campaign_id}/start", response_model=CampaignDetailResponse)

@@ -26,7 +26,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 | Campaigns and call operations | `[x]` | Campaign lifecycle, readiness, durable jobs, outbound call initiation, retries, controls, and monitoring | Tenant-grounded AI conversation behavior is tracked separately |
 | Qualification outcomes | `[ ]` | Designed in PRD/LLD | Classification, callback capture, follow-up queue |
 | Conversation audit | `[ ]` | Designed in PRD/LLD | Persisted call attempts, recordings, transcripts, summaries |
-| Tenant dashboard | `[-]` | Navigation and placeholder views exist | Campaign metrics, filters, lead/call detail views |
+| Tenant dashboard | `[-]` | Live readiness, lead/call metrics, and recent operational call activity | Qualification metrics, filters, and richer call detail views |
 | Knowledge improvement loop | `[ ]` | Designed in PRD/LLD | Gap detection, review, and improvement workflow |
 
 ## 1. Product Foundation And Access
@@ -86,6 +86,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Lead edit, archive/restore, and manual sales-work status management.
 - [x] Lead enrollment selection for campaigns.
 - [x] Lead detail page with contact details, optional attributes, archive state, and manual follow-up status.
+- [x] Manual single-lead creation without requiring CSV import.
 - [x] Add campaign enrollment and call-attempt history to lead detail.
 - [ ] Add AI outcome context to lead detail when classification is implemented.
 
@@ -100,6 +101,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Stop retries after a connected call or terminal outcome.
 - [x] Campaign launch, pause, resume, cancellation, and automatic completion controls.
 - [x] Campaign progress and operational-error visibility.
+- [x] Immediate single-lead **Call now** path with retries disabled.
 
 ## 6. Voice AI Qualification
 
@@ -109,13 +111,13 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Demo agent supports English, Hindi, and mixed Hindi-English conversation behavior.
 - [x] Demo agent uses short lead-qualification conversation rules and safe-answer constraints.
 - [x] Pipeline stage and turn-latency logs are emitted to the FastAPI service.
-- [ ] Generate a tenant-specific call flow from the published business profile and active KB.
-- [ ] Retrieve tenant-scoped KB context for each call without exposing another tenant's knowledge.
-- [ ] Pass lead name and optional lead attributes into the call context.
+- [x] Generate tenant-specific voice instructions from the published business profile and active KB.
+- [x] Load the pinned tenant-scoped KB context for each production call.
+- [x] Pass lead name and optional lead attributes into the call context.
 - [ ] Capture structured qualification facts: area, budget, property type, intent, and timeline.
 - [ ] Capture a requested callback date/time.
 - [ ] Enforce a production call-end policy and terminal outcomes.
-- [ ] Associate all voice-provider events with the persisted call attempt.
+- [x] Preserve tenant, campaign, lead, and call-attempt identifiers through LiveKit dispatch and result callbacks.
 
 ## 7. Lead Classification And Sales Follow-Up
 
@@ -138,7 +140,9 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 
 ## 9. Tenant Dashboard And Knowledge Improvement
 
-- [ ] Campaign dashboard metrics: imported, attempted, connected, unanswered, failed, invalid, hot, warm, and callback requested.
+- [-] Dashboard metrics: lead, campaign, attempted, connected, completed, and failed totals are live; qualification metrics remain planned.
+- [x] Organization first-call readiness with guided category, KB, and lead actions.
+- [x] Recent operational call activity with lead, status, time, duration, and failure context.
 - [ ] Tenant filters for campaigns, lead imports, outcomes, and date ranges.
 - [ ] Lead detail view with qualification data, follow-up status, and call history.
 - [ ] Identify unanswered or insufficiently-grounded questions as tenant-scoped knowledge gaps.

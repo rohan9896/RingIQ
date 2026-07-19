@@ -41,6 +41,11 @@ class VoiceSettings(AppSettings):
     livekit_sip_participant_identity: str = Field("phone_user", alias="LIVEKIT_SIP_PARTICIPANT_IDENTITY")
     livekit_sip_participant_name: str = Field("Demo Lead", alias="LIVEKIT_SIP_PARTICIPANT_NAME")
     livekit_call_timeout_seconds: Optional[float] = Field(30.0, alias="LIVEKIT_CALL_TIMEOUT_SECONDS")
+    livekit_agent_ready_timeout_seconds: float = Field(
+        45.0,
+        alias="LIVEKIT_AGENT_READY_TIMEOUT_SECONDS",
+        gt=0,
+    )
 
 class IdentitySettings(AppSettings):
     database_url: str = Field(..., alias="DATABASE_URL")

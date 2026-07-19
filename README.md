@@ -52,7 +52,22 @@ Run the API in another terminal:
 uv run uvicorn apps.api.ringiq_api.main:app --reload
 ```
 
+Run the PostgreSQL job worker in a third terminal when using campaign or
+click-to-call features:
+
+```bash
+uv run python -m apps.worker.main
+```
+
+Product call APIs enqueue work in PostgreSQL; this worker claims those jobs and
+dispatches the LiveKit agent and outbound SIP participant. The `/demo/calls`
+endpoint dispatches directly and does not require the job worker.
+
 The voice worker posts demo pipeline milestones back to the FastAPI server at `RINGIQ_API_BASE_URL`, so the API terminal shows LiveKit, Deepgram, Groq, and Sarvam progress logs during a test call.
+
+Keep one voice-worker process running per local environment. Failed call startup now removes its
+LiveKit room, and the voice job shuts itself down if its SIP participant does not arrive within
+`LIVEKIT_SIP_PARTICIPANT_WAIT_TIMEOUT_SECONDS`.
 
 Trigger a demo call:
 
@@ -100,7 +115,7 @@ uv run alembic upgrade head
 Create the first platform super administrator after creating its dedicated user in Clerk:
 
 ```bash
-uv run python scripts/bootstrap_platform_user.py \
+uv run python -m scripts.bootstrap_platform_user \
   --clerk-user-id user_xxxxxxxxx \
   --email admin@ringiq.in \
   --display-name "RingIQ Admin"

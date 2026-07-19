@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Archive, ArrowLeft, Loader2, RotateCcw, Save, TriangleAlert } from "lucide-react";
+import { Archive, ArrowLeft, Loader2, PhoneCall, RotateCcw, Save, TriangleAlert } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 import {
   archiveLead,
+  callLeadNow,
   fetchLead,
   fetchLeadCampaignHistory,
   restoreLead,
@@ -24,6 +26,7 @@ function friendlyError(error: unknown) {
 
 export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
   const { getToken } = useAuth();
+  const router = useRouter();
   const [lead, setLead] = useState<Lead | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -131,6 +134,19 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
     }
   }
 
+  async function placeCall() {
+    if (!lead) return;
+    try {
+      setIsSaving(true);
+      setError(null);
+      const campaign = await withToken((token) => callLeadNow(token, lead.id));
+      router.push(`/campaigns?campaign=${campaign.id}` as Route);
+    } catch (caught) {
+      setError(friendlyError(caught));
+      setIsSaving(false);
+    }
+  }
+
   if (isLoading) {
     return <div className="flex min-h-72 items-center justify-center text-sm font-bold text-[#6d6b64]"><Loader2 className="mr-3 size-5 animate-spin" />Loading lead</div>;
   }
@@ -151,9 +167,7 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
           <h1 className="mt-3 text-3xl font-black text-[#171714]">{lead.name}</h1>
           <p className="mt-2 text-sm text-[#6d6b64]">Added {new Date(lead.created_at).toLocaleString()}</p>
         </div>
-        <span className={`inline-flex h-8 items-center border px-3 text-xs font-bold ${lead.status === "archived" ? "border-[#9a6517] bg-[#f7edd8] text-[#805111]" : "border-[#aeb6a7] bg-[#eef0ea] text-[#4d5b44]"}`}>
-          {lead.status}
-        </span>
+        <div className="flex items-center gap-2"><button className="inline-flex h-9 items-center gap-2 bg-[#171714] px-3 text-xs font-bold text-white hover:bg-[#d73a2f] disabled:opacity-50" disabled={isSaving || lead.status === "archived"} onClick={() => void placeCall()} type="button">{isSaving ? <Loader2 className="size-3 animate-spin" /> : <PhoneCall className="size-3" />}Call now</button><span className={`inline-flex h-8 items-center border px-3 text-xs font-bold ${lead.status === "archived" ? "border-[#9a6517] bg-[#f7edd8] text-[#805111]" : "border-[#aeb6a7] bg-[#eef0ea] text-[#4d5b44]"}`}>{lead.status}</span></div>
       </header>
       {error ? <LeadMessage message={error} /> : null}
       {notice ? <div className="mt-6 border-l-2 border-[#66735b] bg-[#eef0ea] p-4 text-sm text-[#4d5b44]">{notice}</div> : null}

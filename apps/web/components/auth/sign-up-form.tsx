@@ -1,18 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useSignUp } from "@clerk/nextjs";
+import { useAuth, useSignUp } from "@clerk/nextjs";
 import { AuthErrors } from "@/components/auth/auth-errors";
 import { AuthField } from "@/components/auth/auth-field";
-import { navigateWithClerk } from "@/lib/clerk-navigation";
+import { navigateWithClerk, postAuthDestination } from "@/lib/clerk-navigation";
 
 export function SignUpForm() {
   const router = useRouter();
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { signUp, errors, fetchStatus } = useSignUp();
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const isLoading = fetchStatus === "fetching";
+  const isLoading = fetchStatus === "fetching" || isFinalizing;
   const needsEmailCode =
     signUp.status === "missing_requirements" &&
     signUp.unverifiedFields.includes("email_address") &&
@@ -27,8 +30,16 @@ export function SignUpForm() {
     [errors.global, localError],
   );
 
-  async function handleCreate(formData: FormData) {
+  useEffect(() => {
+    if (!isAuthLoaded || !isSignedIn) return;
+    router.replace("/dashboard");
+    router.refresh();
+  }, [isAuthLoaded, isSignedIn, router]);
+
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLocalError(null);
+    const formData = new FormData(event.currentTarget);
 
     const firstName = String(formData.get("firstName") ?? "").trim();
     const lastName = String(formData.get("lastName") ?? "").trim();
@@ -48,7 +59,7 @@ export function SignUpForm() {
     }
 
     if (signUp.status === "complete") {
-      await finalize();
+      await finalizeSignUp();
       return;
     }
 
@@ -60,8 +71,10 @@ export function SignUpForm() {
     }
   }
 
-  async function handleVerify(formData: FormData) {
+  async function handleVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLocalError(null);
+    const formData = new FormData(event.currentTarget);
 
     const code = String(formData.get("code") ?? "").trim();
     const { error } = await signUp.verifications.verifyEmailCode({ code });
@@ -71,30 +84,45 @@ export function SignUpForm() {
     }
 
     if (signUp.status === "complete") {
-      await finalize();
+      await finalizeSignUp();
       return;
     }
 
     setLocalError("Email verified, but sign-up still needs another step.");
   }
 
-  async function finalize() {
-    const result = await signUp.finalize({
-      navigate: ({ session, decorateUrl }) => {
-        const destination = session.currentTask?.key === "choose-organization"
-          ? "/workspace/setup"
-          : "/dashboard";
-        return navigateWithClerk(decorateUrl(destination), router);
-      },
-    });
-    if (result.error) {
-      setLocalError(result.error.message);
+  async function finalizeSignUp() {
+    setIsFinalizing(true);
+
+    try {
+      const result = await signUp.finalize({
+        navigate: ({ session, decorateUrl }) => {
+          const destination = postAuthDestination(
+            session.currentTask?.key,
+            "/dashboard",
+          );
+          navigateWithClerk(
+            decorateUrl(destination),
+            (url) => router.replace(url as Route),
+          );
+        },
+      });
+
+      if (result.error) {
+        setLocalError(result.error.message);
+        setIsFinalizing(false);
+      }
+    } catch (error) {
+      setLocalError(
+        error instanceof Error ? error.message : "Sign-up could not be completed.",
+      );
+      setIsFinalizing(false);
     }
   }
 
   if (needsEmailCode) {
     return (
-      <form action={handleVerify} className="space-y-5">
+      <form className="space-y-5" onSubmit={handleVerify}>
         <AuthErrors messages={globalErrors} />
         <AuthField
           id="code"
@@ -125,7 +153,7 @@ export function SignUpForm() {
   }
 
   return (
-    <form action={handleCreate} className="space-y-5">
+    <form className="space-y-5" onSubmit={handleCreate}>
       <AuthErrors messages={globalErrors} />
       <div className="grid gap-4 sm:grid-cols-2">
         <AuthField

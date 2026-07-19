@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { TenantProvisioningGate } from "@/components/tenant-provisioning-gate";
 
 export default async function ProtectedAppLayout({
   children,
@@ -17,5 +18,9 @@ export default async function ProtectedAppLayout({
     redirect("/workspace/setup");
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <TenantProvisioningGate>
+      <AppShell>{children}</AppShell>
+    </TenantProvisioningGate>
+  );
 }

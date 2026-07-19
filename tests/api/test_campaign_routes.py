@@ -215,7 +215,10 @@ def test_worker_creates_attempt_and_connected_call_completes_campaign(
 
     from apps.worker import main as worker_module
 
+    dispatched: dict = {}
+
     async def fake_create_campaign_call(*args, **kwargs):
+        dispatched.update(kwargs)
         return SimpleNamespace(
             livekit_sip_call_id="sip_call_1",
             room_name=kwargs["room_name"],
@@ -236,6 +239,8 @@ def test_worker_creates_attempt_and_connected_call_completes_campaign(
     assert attempt["attempt_number"] == 1
     assert attempt["status"] == "dialing"
     assert attempt["provider_call_id"] == "sip_call_1"
+    assert dispatched["metadata"]["lead_name"] == "Lead 0"
+    assert '"organization_name": "Campaign Realty"' in dispatched["metadata"]["agent_context_json"]
 
     connected = client.post(
         f"/v1/call-attempts/{attempt['id']}/result",

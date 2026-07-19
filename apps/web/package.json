@@ -2,10 +2,13 @@
   "name": "@ringiq/web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint .",
+    "test": "node --test --experimental-strip-types 'lib/**/*.test.ts'",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,6 +19,8 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.10",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",

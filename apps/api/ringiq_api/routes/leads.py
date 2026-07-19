@@ -20,6 +20,7 @@ from apps.api.ringiq_api.models.leads import (
     LeadStatus,
 )
 from apps.api.ringiq_api.schemas.leads import (
+    LeadCreateRequest,
     LeadImportCreateRequest,
     LeadImportDetailResponse,
     LeadImportResponse,
@@ -272,6 +273,32 @@ async def list_leads(
         )
     statement = statement.order_by(Lead.created_at.desc()).limit(200)
     return list((await session.execute(statement)).scalars().all())
+
+
+@router.post("/leads", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
+async def create_lead(
+    payload: LeadCreateRequest,
+    context: TenantContext = Depends(get_current_tenant_context),
+    session: AsyncSession = Depends(get_db_session),
+) -> Lead:
+    phone_number = payload.phone_number.strip()
+    normalized_phone_number = _normalize_phone(phone_number)
+    if normalized_phone_number is None:
+        raise HTTPException(status_code=422, detail="invalid_phone_number")
+    lead = Lead(
+        tenant_id=context.tenant_id,
+        name=payload.name.strip(),
+        email=_validate_email(payload.email),
+        phone_number=phone_number,
+        normalized_phone_number=normalized_phone_number,
+        attributes_json=payload.attributes_json,
+        created_by_user_id=context.user_id,
+        updated_by_user_id=context.user_id,
+    )
+    session.add(lead)
+    await _commit(session, "lead_phone_number_already_exists")
+    await session.refresh(lead)
+    return lead
 
 
 @router.get("/leads/{lead_id}", response_model=LeadResponse)

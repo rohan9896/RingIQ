@@ -1,33 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useSignIn } from "@clerk/nextjs";
+import { useAuth, useSignIn } from "@clerk/nextjs";
 import { AuthErrors } from "@/components/auth/auth-errors";
 import { AuthField } from "@/components/auth/auth-field";
-import { navigateWithClerk } from "@/lib/clerk-navigation";
+import { navigateWithClerk, postAuthDestination } from "@/lib/clerk-navigation";
 
 type VerificationStrategy = "email_code" | "phone_code" | "totp" | "backup_code";
 
 type SignInFormProps = {
   destination?: string;
-  organizationTaskDestination?: string;
   submitLabel?: string;
 };
 
 export function SignInForm({
   destination = "/dashboard",
-  organizationTaskDestination = "/workspace/setup",
   submitLabel = "Sign in",
 }: SignInFormProps) {
   const router = useRouter();
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { signIn, errors, fetchStatus } = useSignIn();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [verificationStrategy, setVerificationStrategy] =
     useState<VerificationStrategy | null>(null);
   const [safeIdentifier, setSafeIdentifier] = useState<string | null>(null);
-  const isLoading = fetchStatus === "fetching";
+  const isLoading = fetchStatus === "fetching" || isFinalizing;
 
   const globalErrors = useMemo(
     () =>
@@ -38,8 +39,16 @@ export function SignInForm({
     [errors.global, localError],
   );
 
-  async function handleSubmit(formData: FormData) {
+  useEffect(() => {
+    if (!isAuthLoaded || !isSignedIn) return;
+    router.replace(destination as Route);
+    router.refresh();
+  }, [destination, isAuthLoaded, isSignedIn, router]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLocalError(null);
+    const formData = new FormData(event.currentTarget);
 
     const identifier = String(formData.get("identifier") ?? "").trim();
     const password = String(formData.get("password") ?? "");
@@ -67,15 +76,33 @@ export function SignInForm({
   }
 
   async function finalizeSignIn() {
-    const result = await signIn.finalize({
-      navigate: ({ session, decorateUrl }) => {
-        const nextDestination = session.currentTask?.key === "choose-organization"
-          ? organizationTaskDestination
-          : destination;
-        return navigateWithClerk(decorateUrl(nextDestination), router);
-      },
-    });
-    if (result.error) setLocalError(result.error.message);
+    setIsFinalizing(true);
+
+    try {
+      const result = await signIn.finalize({
+        navigate: ({ session, decorateUrl }) => {
+          const nextPath = postAuthDestination(
+            session.currentTask?.key,
+            destination,
+          );
+          navigateWithClerk(
+            decorateUrl(nextPath),
+            (url) => router.replace(url as Route),
+          );
+        },
+      });
+
+      if (result.error) {
+        setLocalError(result.error.message);
+        setIsFinalizing(false);
+        return;
+      }
+    } catch (error) {
+      setLocalError(
+        error instanceof Error ? error.message : "Sign-in could not be completed.",
+      );
+      setIsFinalizing(false);
+    }
   }
 
   async function prepareVerification() {
@@ -120,8 +147,10 @@ export function SignInForm({
     setLocalError("No supported verification method is available for this account.");
   }
 
-  async function handleVerification(formData: FormData) {
+  async function handleVerification(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLocalError(null);
+    const formData = new FormData(event.currentTarget);
     const code = String(formData.get("code") ?? "").trim();
     if (!verificationStrategy) return;
 
@@ -164,7 +193,7 @@ export function SignInForm({
         : "Verification code";
 
     return (
-      <form action={handleVerification} className="space-y-5">
+      <form className="space-y-5" onSubmit={handleVerification}>
         <AuthErrors messages={globalErrors} />
         <p className="text-sm leading-6 text-[#6d6b64]">
           {isCodeDelivery
@@ -202,7 +231,7 @@ export function SignInForm({
   }
 
   return (
-    <form action={handleSubmit} className="space-y-5">
+    <form className="space-y-5" onSubmit={handleSubmit}>
       <AuthErrors messages={globalErrors} />
       <AuthField
         id="identifier"

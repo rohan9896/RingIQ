@@ -34,6 +34,13 @@ class LeadResponse(BaseModel):
     updated_at: datetime
 
 
+class LeadCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    email: str = Field(min_length=3, max_length=320)
+    phone_number: str = Field(min_length=5, max_length=32)
+    attributes_json: dict[str, Any] = Field(default_factory=dict)
+
+
 class LeadUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: str | None = Field(default=None, min_length=3, max_length=320)

@@ -23,3 +23,5 @@ skills/reports/
 .claude
 
 .env
+apps/web/playwright-report/
+apps/web/test-results/

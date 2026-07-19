@@ -1,5 +1,4 @@
 import { BrandMark } from "@/components/brand-mark";
-import { PendingTaskRedirect } from "@/components/auth/pending-task-redirect";
 
 export default function AuthLayout({
   children,
@@ -8,7 +7,6 @@ export default function AuthLayout({
 }>) {
   return (
     <main className="grid min-h-screen grid-cols-1 bg-[#f7f6f2] lg:grid-cols-[0.92fr_1.08fr]">
-      <PendingTaskRedirect />
       <section className="paper-grid relative flex min-h-[23rem] flex-col justify-between overflow-hidden border-b border-[#171714] bg-[#171714] px-6 py-6 text-white sm:px-10 lg:min-h-screen lg:border-b-0 lg:border-r">
         <BrandMark inverse />
         <div className="relative max-w-xl py-14">

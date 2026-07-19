@@ -1,10 +1,26 @@
-import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+export type ClerkNavigationLocation = {
+  assign: (href: string) => void;
+};
 
-export function navigateWithClerk(url: string, router: AppRouterInstance) {
-  if (url.startsWith("http")) {
-    window.location.href = url;
+export function postAuthDestination(
+  currentTaskKey: string | null | undefined,
+  destination: string,
+  organizationTaskDestination = "/workspace/setup",
+) {
+  return currentTaskKey === "choose-organization"
+    ? organizationTaskDestination
+    : destination;
+}
+
+export function navigateWithClerk(
+  url: string,
+  navigate: (href: string) => void,
+  navigationLocation: ClerkNavigationLocation = window.location,
+) {
+  if (url.startsWith("https://") || url.startsWith("http://")) {
+    navigationLocation.assign(url);
     return;
   }
 
-  router.push(url);
+  navigate(url);
 }

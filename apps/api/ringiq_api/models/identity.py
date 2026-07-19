@@ -36,6 +36,9 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     clerk_organization_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    primary_category_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"), index=True
+    )
     timezone: Mapped[str] = mapped_column(
         String(64),
         nullable=False,

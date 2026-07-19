@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
-import { SignInForm } from "@/components/auth/sign-in-form";
+import { PlatformSignInForm } from "@/components/auth/platform-sign-in-form";
 
 export default async function PlatformSignInPage() {
   const { userId, orgId } = await auth();
@@ -32,11 +32,7 @@ export default async function PlatformSignInPage() {
             <p className="mb-7 mt-3 text-sm leading-6 text-[#6d6b64]">
               Use your dedicated RingIQ platform account.
             </p>
-            <SignInForm
-              destination="/platform"
-              organizationTaskDestination="/workspace/setup"
-              submitLabel="Enter platform console"
-            />
+            <PlatformSignInForm />
           </section>
         </div>
         <p className="utility-label !text-white/35">Access is invitation only</p>

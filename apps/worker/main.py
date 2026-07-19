@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import logging
 import socket
 import uuid
@@ -21,6 +22,8 @@ from apps.api.ringiq_api.models.campaigns import (
     JobStatus,
 )
 from apps.api.ringiq_api.models.leads import Lead
+from apps.api.ringiq_api.models.identity import Tenant
+from apps.api.ringiq_api.models.knowledge import TenantKnowledgeBaseVersion
 from apps.api.ringiq_api.services.campaign_operations import (
     apply_attempt_result,
     claim_call_job,
@@ -97,6 +100,31 @@ async def process_next_call_job(worker_id: str) -> bool:
                 )
             )
         ).scalar_one()
+        knowledge_version = (
+            await session.execute(
+                select(TenantKnowledgeBaseVersion)
+                .options(selectinload(TenantKnowledgeBaseVersion.questions))
+                .where(
+                    TenantKnowledgeBaseVersion.id == campaign.knowledge_base_version_id,
+                    TenantKnowledgeBaseVersion.tenant_id == enrollment.tenant_id,
+                )
+            )
+        ).scalar_one()
+        tenant = await session.get(Tenant, enrollment.tenant_id)
+        agent_context = {
+            "organization_name": tenant.name if tenant else "the business",
+            "lead": {"name": lead.name, "attributes": lead.attributes_json},
+            "knowledge_base": {
+                "title": knowledge_version.title,
+                "business_profile": knowledge_version.business_profile_json,
+                "additional_notes": knowledge_version.additional_notes,
+                "answers": [
+                    {"question": question.label, "answer": question.answer_value_json}
+                    for question in knowledge_version.questions
+                    if question.answer_value_json is not None
+                ],
+            },
+        }
         attempt_number = int(job.payload_json["attempt_number"])
         attempt = next(
             (item for item in enrollment.attempts if item.attempt_number == attempt_number),
@@ -117,6 +145,7 @@ async def process_next_call_job(worker_id: str) -> bool:
                     "lead_name": lead.name,
                     "lead_phone_number": lead.normalized_phone_number,
                     "lead_attributes": lead.attributes_json,
+                    "agent_context": agent_context,
                 },
             )
             session.add(attempt)
@@ -142,6 +171,7 @@ async def process_next_call_job(worker_id: str) -> bool:
                     "knowledge_base_version_id": str(campaign.knowledge_base_version_id),
                     "lead_id": str(lead.id),
                     "lead_name": lead.name,
+                    "agent_context_json": json.dumps(agent_context, default=str),
                 },
             )
             attempt.status = CallAttemptStatus.DIALING.value

@@ -17,6 +17,7 @@ from apps.api.ringiq_api.models.catalog import (
     QnaQuestion,
     TemplateStatus,
 )
+from apps.api.ringiq_api.models.identity import Tenant
 from apps.api.ringiq_api.models.knowledge import (
     TenantKnowledgeBase,
     TenantKnowledgeBaseVersion,
@@ -149,7 +150,7 @@ def _has_answer(value: Any) -> bool:
 
 @router.get("/starter-templates", response_model=list[StarterTemplateResponse])
 async def list_starter_templates(
-    _: TenantContext = Depends(get_current_tenant_context),
+    context: TenantContext = Depends(get_current_tenant_context),
     session: AsyncSession = Depends(get_db_session),
 ) -> list[StarterTemplateResponse]:
     statement = (
@@ -162,6 +163,9 @@ async def list_starter_templates(
         )
         .order_by(Category.name, CategoryTemplateVersion.version.desc())
     )
+    tenant = await session.get(Tenant, context.tenant_id)
+    if tenant is not None and tenant.primary_category_id is not None:
+        statement = statement.where(Category.id == tenant.primary_category_id)
     rows = (await session.execute(statement)).all()
     return [
         StarterTemplateResponse(
@@ -213,6 +217,11 @@ async def create_knowledge_base_draft(
         source_template = (await session.execute(source_statement)).scalar_one_or_none()
         if source_template is None:
             raise HTTPException(status_code=404, detail="starter_template_not_found")
+        tenant = await session.get(Tenant, context.tenant_id)
+        if tenant is not None and tenant.primary_category_id is not None and tenant.primary_category_id != source_template.category_id:
+            raise HTTPException(status_code=422, detail="starter_template_category_mismatch")
+        if tenant is not None and tenant.primary_category_id is None:
+            tenant.primary_category_id = source_template.category_id
     elif workspace is not None and workspace.active_version is not None:
         source_version = workspace.active_version
     else:

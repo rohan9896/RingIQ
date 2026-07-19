@@ -23,6 +23,18 @@ export type BackendIdentity = {
   };
 };
 
+export type TenantBootstrap = {
+  tenant_id: string;
+  user_id: string;
+  membership_id: string;
+  clerk_organization_id: string;
+  clerk_user_id: string;
+  clerk_membership_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  timezone: string;
+};
+
 export async function fetchBackendIdentity(token: string) {
   const response = await fetch(`${apiBaseUrl}/v1/me`, {
     headers: {
@@ -40,6 +52,30 @@ export async function fetchBackendIdentity(token: string) {
   }
 
   return (await response.json()) as BackendIdentity;
+}
+
+export async function bootstrapTenantMembership(
+  token: string,
+  signal?: AbortSignal,
+) {
+  const response = await fetch(`${apiBaseUrl}/v1/onboarding/bootstrap`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail =
+      typeof body?.detail === "string"
+        ? body.detail
+        : `Backend returned ${response.status}`;
+    throw new Error(detail);
+  }
+
+  return (await response.json()) as TenantBootstrap;
 }
 
 export type PlatformRole =
@@ -373,6 +409,13 @@ export function fetchLeads(token: string, query?: string, includeArchived = fals
   return leadsRequest<Lead[]>(token, `/leads${search}`);
 }
 
+export function createLead(
+  token: string,
+  payload: Pick<Lead, "name" | "email" | "phone_number" | "attributes_json">,
+) {
+  return leadsRequest<Lead>(token, "/leads", { method: "POST", body: JSON.stringify(payload) });
+}
+
 export function fetchLeadImports(token: string) {
   return leadsRequest<LeadImport[]>(token, "/lead-imports");
 }
@@ -520,4 +563,62 @@ export function changeCampaignState(
 
 export function fetchLeadCampaignHistory(token: string, leadId: string) {
   return leadsRequest<LeadCampaignHistory[]>(token, `/leads/${leadId}/campaign-history`);
+}
+
+export function callLeadNow(token: string, leadId: string) {
+  return leadsRequest<CampaignDetail>(token, `/leads/${leadId}/call-now`, { method: "POST" });
+}
+
+export type WorkspaceCategory = { id: string; key: string; name: string };
+export type Workspace = {
+  tenant_id: string;
+  name: string;
+  timezone: string;
+  category: WorkspaceCategory | null;
+  has_active_knowledge_base: boolean;
+  is_call_ready: boolean;
+  readiness_blockers: string[];
+};
+export type DashboardData = {
+  workspace: Workspace;
+  totals: {
+    leads: number;
+    campaigns: number;
+    call_attempts: number;
+    connected: number;
+    completed: number;
+    failed: number;
+  };
+  recent_calls: Array<{
+    attempt_id: string;
+    lead_id: string;
+    lead_name: string;
+    campaign_id: string;
+    campaign_name: string;
+    status: string;
+    started_at: string | null;
+    ended_at: string | null;
+    duration_seconds: number | null;
+    failure_code: string | null;
+    failure_detail: string | null;
+  }>;
+};
+
+export function fetchWorkspace(token: string) {
+  return leadsRequest<Workspace>(token, "/workspace");
+}
+
+export function fetchWorkspaceCategories(token: string) {
+  return leadsRequest<WorkspaceCategory[]>(token, "/workspace/categories");
+}
+
+export function updateWorkspaceCategory(token: string, primaryCategoryId: string) {
+  return leadsRequest<Workspace>(token, "/workspace", {
+    method: "PATCH",
+    body: JSON.stringify({ primary_category_id: primaryCategoryId }),
+  });
+}
+
+export function fetchDashboard(token: string) {
+  return leadsRequest<DashboardData>(token, "/dashboard");
 }
