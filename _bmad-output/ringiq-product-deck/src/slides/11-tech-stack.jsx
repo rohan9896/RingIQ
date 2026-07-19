@@ -23,7 +23,7 @@ const reveal = {
 const voiceServices = [
   'Vobiz · SIP',
   'Deepgram Flux · STT',
-  'Groq · llama-3.3-70b-versatile',
+  'Groq · openai/gpt-oss-20b',
   'Sarvam Bulbul v3 · TTS',
 ];
 
