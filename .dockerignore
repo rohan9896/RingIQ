@@ -1,0 +1,86 @@
+# Project tests
+**/*.test.ts
+**/*.spec.ts
+__tests__/
+tests/
+evals/
+
+# Services and artifacts not used by the voice runtime
+apps/api/
+apps/worker/
+apps/web/
+docs/
+infra/
+migrations/
+packages/
+scripts/
+_bmad/
+_bmad-output/
+
+# Node.js dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Local environment & config files
+.env
+.env.local
+.DS_Store
+
+# Logs & temp files
+*.log
+*.gz
+*.tgz
+.tmp
+.cache
+
+# Docker artifacts
+Dockerfile*
+.dockerignore
+
+# Git & Editor files
+.git
+.gitignore
+.idea
+.vscode
+
+# Test artifacts
+coverage/
+
+# Project docs and misc
+README.md
+CONTRIBUTING.md
+LICENSE
+!README.md
+!LICENSE
+
+# Coding agent files
+.agents/
+.claude/
+.codex/
+.cursor/
+.windsurf/
+.gemini/
+.cline/
+.clinerules
+.clinerules/
+.aider*
+.cursorrules
+.cursorignore
+.cursorindexingignore
+.clineignore
+.codeiumignore
+.geminiignore
+.windsurfrules
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.github/copilot-instructions.md
+.github/personal-instructions.md
+.github/instructions/
