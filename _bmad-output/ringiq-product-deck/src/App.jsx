@@ -13,6 +13,7 @@ import Slide09 from './slides/09-intelligence';
 import Slide10 from './slides/10-platform';
 import Slide11 from './slides/11-tech-stack';
 import Slide12 from './slides/12-architecture';
+import Slide13 from './slides/13-clerk-identity';
 
 const SLIDES = [
   Slide01,
@@ -27,6 +28,7 @@ const SLIDES = [
   Slide10,
   Slide11,
   Slide12,
+  Slide13,
 ];
 
 const NAV_ITEMS = [
@@ -42,6 +44,7 @@ const NAV_ITEMS = [
   { slideIndex: 9, label: 'Platform' },
   { slideIndex: 10, label: 'Tech Stack' },
   { slideIndex: 11, label: 'Architecture' },
+  { slideIndex: 12, label: 'Identity' },
 ];
 
 // Slide transition variants
