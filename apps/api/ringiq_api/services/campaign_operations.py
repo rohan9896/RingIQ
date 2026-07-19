@@ -63,6 +63,20 @@ async def campaign_readiness(
     if not campaign.enrollments:
         blockers.append("campaign_leads_required")
 
+    if campaign.knowledge_base_version_id is not None:
+        pinned_version = await session.get(
+            TenantKnowledgeBaseVersion,
+            campaign.knowledge_base_version_id,
+        )
+        if pinned_version is None or pinned_version.tenant_id != campaign.tenant_id:
+            blockers.append("campaign_knowledge_base_unavailable")
+            return blockers, None
+        if pinned_version.status != "published":
+            blockers.append("campaign_knowledge_base_unpublished")
+        if not pinned_version.business_profile_json:
+            blockers.append("business_profile_required")
+        return blockers, pinned_version
+
     workspace = (
         await session.execute(
             select(TenantKnowledgeBase)

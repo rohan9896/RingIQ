@@ -186,6 +186,13 @@ class CallAttempt(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     context_snapshot_json: Mapped[dict] = mapped_column(
         JSON, nullable=False, default=dict, server_default=text("'{}'")
     )
+    transcript_json: Mapped[list] = mapped_column(
+        JSON, nullable=False, default=list, server_default=text("'[]'")
+    )
+    recording_egress_id: Mapped[str | None] = mapped_column(String(255))
+    recording_status: Mapped[str | None] = mapped_column(String(32))
+    recording_storage_uri: Mapped[str | None] = mapped_column(String(2000))
+    recording_url: Mapped[str | None] = mapped_column(String(2000))
     failure_code: Mapped[str | None] = mapped_column(String(100))
     failure_detail: Mapped[str | None] = mapped_column(String(2000))
 

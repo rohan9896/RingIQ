@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from types import SimpleNamespace
 
 from apps.api.ringiq_api.auth.context import TenantContext, get_current_tenant_context
+from apps.api.ringiq_api.config import AppSettings, get_app_settings
 from apps.api.ringiq_api.db.session import get_db_session
 from apps.api.ringiq_api.main import create_app
 from apps.api.ringiq_api.models.campaigns import Job, JobStatus
@@ -88,6 +89,9 @@ def import_leads(client: TestClient, count: int = 2) -> list[str]:
 async def seed_active_knowledge_base(
     session_factory: async_sessionmaker[AsyncSession],
     context: TenantContext,
+    *,
+    title: str = "Campaign knowledge",
+    business_name: str = "Campaign Realty",
 ) -> uuid.UUID:
     async with session_factory() as session:
         workspace = TenantKnowledgeBase(tenant_id=context.tenant_id)
@@ -97,7 +101,37 @@ async def seed_active_knowledge_base(
             knowledge_base_id=workspace.id,
             tenant_id=context.tenant_id,
             version=1,
-            title="Campaign knowledge",
+            title=title,
+            business_profile_json={"business_name": business_name},
+            status="published",
+            created_by_user_id=context.user_id,
+        )
+        session.add(version)
+        await session.flush()
+        workspace.active_version_id = version.id
+        await session.commit()
+        return version.id
+
+
+async def publish_next_active_knowledge_base(
+    session_factory: async_sessionmaker[AsyncSession],
+    context: TenantContext,
+    *,
+    title: str,
+) -> uuid.UUID:
+    async with session_factory() as session:
+        workspace = (
+            await session.execute(
+                select(TenantKnowledgeBase).where(
+                    TenantKnowledgeBase.tenant_id == context.tenant_id
+                )
+            )
+        ).scalar_one()
+        version = TenantKnowledgeBaseVersion(
+            knowledge_base_id=workspace.id,
+            tenant_id=context.tenant_id,
+            version=2,
+            title=title,
             business_profile_json={"business_name": "Campaign Realty"},
             status="published",
             created_by_user_id=context.user_id,
@@ -135,7 +169,7 @@ def test_campaign_lifecycle_creates_durable_call_jobs(
     campaign_client: tuple[TestClient, async_sessionmaker[AsyncSession], TenantContext],
 ) -> None:
     client, session_factory, context = campaign_client
-    asyncio.run(seed_active_knowledge_base(session_factory, context))
+    kb_id = asyncio.run(seed_active_knowledge_base(session_factory, context))
     lead_ids = import_leads(client, 2)
     created = client.post(
         "/v1/campaigns",
@@ -143,6 +177,15 @@ def test_campaign_lifecycle_creates_durable_call_jobs(
     )
     assert created.status_code == 201
     assert created.json()["status"] == "ready"
+    assert created.json()["knowledge_base_version_id"] == str(kb_id)
+    assert created.json()["knowledge_base"] == {
+        "id": str(kb_id),
+        "title": "Campaign knowledge",
+        "version": 1,
+        "status": "published",
+        "category_id": None,
+        "is_pinned": True,
+    }
     assert created.json()["progress"]["total"] == 2
 
     started = client.post(f"/v1/campaigns/{created.json()['id']}/start")
@@ -150,7 +193,8 @@ def test_campaign_lifecycle_creates_durable_call_jobs(
     assert started.json()["status"] == "running"
     assert started.json()["retry_limit"] == 3
     assert started.json()["progress"]["queued"] == 2
-    assert started.json()["knowledge_base_version_id"] is not None
+    assert started.json()["knowledge_base_version_id"] == str(kb_id)
+    assert started.json()["knowledge_base"]["is_pinned"] is True
 
     async def job_count() -> int:
         async with session_factory() as session:
@@ -171,6 +215,40 @@ def test_campaign_lifecycle_creates_durable_call_jobs(
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
     assert cancelled.json()["progress"]["cancelled"] == 2
+
+
+def test_campaign_start_keeps_creation_time_knowledge_base_pin(
+    campaign_client: tuple[TestClient, async_sessionmaker[AsyncSession], TenantContext],
+) -> None:
+    client, session_factory, context = campaign_client
+    first_kb_id = asyncio.run(
+        seed_active_knowledge_base(session_factory, context, title="Launch KB v1")
+    )
+    lead_id = import_leads(client, 1)[0]
+    campaign = client.post(
+        "/v1/campaigns", json={"name": "Stable KB campaign", "lead_ids": [lead_id]}
+    ).json()
+    assert campaign["knowledge_base_version_id"] == str(first_kb_id)
+
+    second_kb_id = asyncio.run(
+        publish_next_active_knowledge_base(session_factory, context, title="Launch KB v2")
+    )
+    assert second_kb_id != first_kb_id
+
+    fetched = client.get(f"/v1/campaigns/{campaign['id']}").json()
+    assert fetched["knowledge_base"] == {
+        "id": str(first_kb_id),
+        "title": "Launch KB v1",
+        "version": 1,
+        "status": "published",
+        "category_id": None,
+        "is_pinned": True,
+    }
+
+    started = client.post(f"/v1/campaigns/{campaign['id']}/start")
+    assert started.status_code == 200
+    assert started.json()["knowledge_base_version_id"] == str(first_kb_id)
+    assert started.json()["knowledge_base"]["title"] == "Launch KB v1"
 
 
 def test_campaigns_and_lead_history_are_tenant_scoped(
@@ -199,6 +277,85 @@ def test_campaigns_and_lead_history_are_tenant_scoped(
     )
     assert client.get(f"/v1/campaigns/{campaign['id']}").status_code == 404
     assert client.get(f"/v1/leads/{lead_id}/campaign-history").status_code == 404
+
+
+def test_call_artifacts_are_stored_and_tenant_scoped(
+    campaign_client: tuple[TestClient, async_sessionmaker[AsyncSession], TenantContext],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, session_factory, context = campaign_client
+    asyncio.run(seed_active_knowledge_base(session_factory, context))
+    lead_id = import_leads(client, 1)[0]
+    campaign = client.post(
+        "/v1/campaigns", json={"name": "Recorded calls", "lead_ids": [lead_id]}
+    ).json()
+    client.post(f"/v1/campaigns/{campaign['id']}/start")
+
+    from apps.worker import main as worker_module
+
+    async def fake_create_campaign_call(*args, **kwargs):
+        return SimpleNamespace(
+            livekit_sip_call_id="sip_artifact",
+            room_name=kwargs["room_name"],
+        )
+
+    monkeypatch.setattr(worker_module, "get_session_factory", lambda: session_factory)
+    monkeypatch.setattr(worker_module, "get_voice_settings", lambda: object())
+    monkeypatch.setattr(
+        worker_module.LiveKitCallService,
+        "create_campaign_call",
+        fake_create_campaign_call,
+    )
+    asyncio.run(worker_module.process_next_call_job("artifact-worker"))
+    detail = client.get(f"/v1/campaigns/{campaign['id']}").json()
+    attempt_id = detail["enrollments"][0]["attempts"][0]["id"]
+    client.app.dependency_overrides[get_app_settings] = lambda: AppSettings(
+        internal_api_key="artifact-secret"
+    )
+
+    unauthorized = client.post(
+        f"/v1/internal/call-attempts/{attempt_id}/artifacts",
+        json={"transcript": []},
+    )
+    assert unauthorized.status_code == 401
+
+    stored = client.post(
+        f"/v1/internal/call-attempts/{attempt_id}/artifacts",
+        headers={"X-RingIQ-Internal-Key": "artifact-secret"},
+        json={
+            "transcript": [
+                {"role": "assistant", "text": "Aapka budget kya hai?"},
+                {"role": "user", "text": "Do crore."},
+            ],
+            "recording_egress_id": "EG_test",
+            "recording_status": "available",
+            "recording_storage_uri": "s3://recordings/call.mp3",
+            "recording_url": "https://media.example.com/call.mp3",
+        },
+    )
+    assert stored.status_code == 200
+    assert stored.json() == {"status": "stored"}
+
+    calls = client.get("/v1/calls")
+    assert calls.status_code == 200
+    call = calls.json()[0]
+    assert call["id"] == attempt_id
+    assert call["lead_id"] == lead_id
+    assert call["transcript"][1]["text"] == "Do crore."
+    assert call["recording_url"] == "https://media.example.com/call.mp3"
+
+    client.app.dependency_overrides[get_current_tenant_context] = lambda: TenantContext(
+        tenant_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        membership_id=uuid.uuid4(),
+        clerk_organization_id="org_artifact_other",
+        clerk_user_id="user_artifact_other",
+        clerk_membership_id="orgmem_artifact_other",
+        tenant_name="Other tenant",
+        tenant_slug="other-tenant",
+        timezone="Asia/Kolkata",
+    )
+    assert client.get("/v1/calls").json() == []
 
 
 def test_worker_creates_attempt_and_connected_call_completes_campaign(

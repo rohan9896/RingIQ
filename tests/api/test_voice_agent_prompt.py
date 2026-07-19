@@ -1,5 +1,6 @@
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 from livekit.agents import StopResponse, llm
@@ -8,12 +9,17 @@ from apps.voice_worker.agent import (
     _CallOpeningHarness,
     _OpeningStage,
     _QualificationTurnHarness,
+    _RecordingHandle,
     _RingIQVoiceAgent,
     _agent_instructions,
     _bounded_int_env,
     _callback_confirmation,
+    _conversation_transcript,
+    _duration_limit_closing_message,
     _identity_confirmation,
     _initial_greeting,
+    _start_call_recording,
+    _stop_call_recording,
 )
 
 
@@ -284,3 +290,134 @@ def test_bounded_integer_environment_prevents_invalid_provider_config(monkeypatc
     monkeypatch.setenv("TEST_BUFFER_SIZE", "20")
 
     assert _bounded_int_env("TEST_BUFFER_SIZE", 30, minimum=30, maximum=200) == 30
+
+
+def test_conversation_transcript_keeps_only_spoken_roles() -> None:
+    session = SimpleNamespace(
+        history=SimpleNamespace(
+            items=[
+                SimpleNamespace(role="system", text_content="Internal prompt"),
+                SimpleNamespace(role="assistant", text_content="Budget kya hai?", interrupted=False),
+                SimpleNamespace(role="user", text_content="Do crore.", interrupted=False),
+                SimpleNamespace(role="assistant", text_content="  ", interrupted=False),
+            ]
+        )
+    )
+
+    assert _conversation_transcript(session) == [
+        {"role": "assistant", "text": "Budget kya hai?", "interrupted": False},
+        {"role": "user", "text": "Do crore.", "interrupted": False},
+    ]
+
+
+def test_recording_is_additive_and_disabled_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("LIVEKIT_RECORDING_ENABLED", raising=False)
+    ctx = SimpleNamespace(room=SimpleNamespace(name="test-room"))
+
+    assert asyncio.run(_start_call_recording(ctx, {})) is None
+
+
+def test_recording_uses_dual_channel_egress_after_it_is_enabled(monkeypatch) -> None:
+    from apps.voice_worker import agent as agent_module
+
+    requests: list[object] = []
+
+    class FakeEgress:
+        async def start_room_composite_egress(self, request):
+            requests.append(request)
+            return SimpleNamespace(egress_id="EG_recording")
+
+    class FakeLiveKitAPI:
+        def __init__(self, **_: object) -> None:
+            self.egress = FakeEgress()
+
+        async def aclose(self) -> None:
+            return None
+
+    monkeypatch.setattr(agent_module.api, "LiveKitAPI", FakeLiveKitAPI)
+    monkeypatch.setenv("LIVEKIT_RECORDING_ENABLED", "true")
+    monkeypatch.setenv("LIVEKIT_RECORDING_S3_BUCKET", "ringiq-recordings")
+    monkeypatch.setenv("LIVEKIT_RECORDING_S3_REGION", "ap-south-1")
+    monkeypatch.setenv("LIVEKIT_RECORDING_S3_ACCESS_KEY", "access")
+    monkeypatch.setenv("LIVEKIT_RECORDING_S3_SECRET", "secret")
+    monkeypatch.setenv("LIVEKIT_RECORDING_PUBLIC_BASE_URL", "https://media.example.com")
+    monkeypatch.delenv("RINGIQ_INTERNAL_API_KEY", raising=False)
+    ctx = SimpleNamespace(
+        room=SimpleNamespace(name="ringiq-call-test"),
+        job=SimpleNamespace(id="job-test"),
+    )
+
+    handle = asyncio.run(
+        _start_call_recording(
+            ctx,
+            {"tenant_id": "tenant-test", "call_attempt_id": "attempt-test"},
+        )
+    )
+
+    assert handle is not None
+    assert handle.egress_id == "EG_recording"
+    assert handle.playback_url == (
+        "https://media.example.com/ringiq/recordings/tenant-test/attempt-test.mp3"
+    )
+    request = requests[0]
+    assert request.audio_only is True
+    assert request.audio_mixing == agent_module.api.AudioMixing.DUAL_CHANNEL_AGENT
+    assert request.file_outputs[0].filepath.endswith("/attempt-test.mp3")
+
+
+def test_recording_waits_for_terminal_upload_failure(monkeypatch) -> None:
+    from apps.voice_worker import agent as agent_module
+
+    class FakeEgress:
+        async def stop_egress(self, _request):
+            return SimpleNamespace(
+                status=agent_module.api.EgressStatus.EGRESS_ENDING,
+                error="",
+            )
+
+        async def list_egress(self, _request):
+            return SimpleNamespace(
+                items=[
+                    SimpleNamespace(
+                        status=agent_module.api.EgressStatus.EGRESS_FAILED,
+                        error="S3 AccessDenied",
+                    )
+                ]
+            )
+
+    class FakeLiveKitAPI:
+        def __init__(self, **_: object) -> None:
+            self.egress = FakeEgress()
+
+        async def aclose(self) -> None:
+            return None
+
+    async def no_wait(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(agent_module.api, "LiveKitAPI", FakeLiveKitAPI)
+    monkeypatch.setattr(agent_module.asyncio, "sleep", no_wait)
+
+    status = asyncio.run(
+        _stop_call_recording(
+            _RecordingHandle(
+                egress_id="EG_failed",
+                storage_uri="s3://bucket/call.mp3",
+                playback_url=None,
+            )
+        )
+    )
+
+    assert status == "failed"
+
+
+def test_duration_limit_closing_matches_customer_language() -> None:
+    assert _duration_limit_closing_message("hi", "मुझे प्रॉपर्टी चाहिए") == (
+        "Aapki interest ke liye dhanyavaad. "
+        "Hamari sales team aapko jaldi callback karegi."
+    )
+    assert _duration_limit_closing_message("en", "I am interested") == (
+        "Thank you for your interest. "
+        "Our sales team will call you back shortly."
+    )
+    assert "sales team" in _duration_limit_closing_message(None, "हाँ, ठीक है")

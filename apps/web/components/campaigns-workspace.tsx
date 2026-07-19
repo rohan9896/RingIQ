@@ -33,6 +33,9 @@ const blockerLabels: Record<string, string> = {
   campaign_leads_required: "Add at least one active lead.",
   active_knowledge_base_required: "Publish an active knowledge base.",
   business_profile_required: "Complete the knowledge-base business profile.",
+  campaign_knowledge_base_unavailable: "The campaign knowledge base is no longer available.",
+  campaign_knowledge_base_unpublished: "The campaign knowledge base must be published.",
+  knowledge_base_category_mismatch: "The knowledge base category does not match the workspace category.",
 };
 
 export function CampaignsWorkspace() {
@@ -151,6 +154,13 @@ function CampaignDetailView({ campaign, isActing, onAction, onRefresh }: { campa
         {canCancel ? <ActionButton disabled={isActing} icon={Ban} label="Cancel" onClick={() => onAction("cancel")} /> : null}
       </div>
     </div>
+    {campaign.knowledge_base ? <div className="border-x border-b border-[#d8d5cc] bg-[#f7f6f2] px-5 py-4">
+      <p className="utility-label">{campaign.knowledge_base.is_pinned ? "Pinned knowledge base" : "Active knowledge base"}</p>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-bold text-[#171714]">{campaign.knowledge_base.title} <span className="font-normal text-[#6d6b64]">v{campaign.knowledge_base.version}</span></p>
+        <span className={`w-fit border px-2 py-1 text-xs font-bold ${campaign.knowledge_base.is_pinned ? "border-[#4d5b44] text-[#4d5b44]" : "border-[#d8d5cc] text-[#6d6b64]"}`}>{campaign.knowledge_base.is_pinned ? "Campaign locked" : "Will lock on start"}</span>
+      </div>
+    </div> : null}
     {!campaign.readiness.is_ready && canStart ? <div className="border-x border-b border-[#d8d5cc] bg-[#f7edd8] p-4 text-sm text-[#805111]"><p className="font-bold">Not ready to start</p><ul className="mt-2 space-y-1">{campaign.readiness.blockers.map((blocker) => <li key={blocker}>{blockerLabels[blocker] ?? blocker.replaceAll("_", " ")}</li>)}</ul></div> : null}
     <div className="mt-5 grid gap-px border border-[#d8d5cc] bg-[#d8d5cc] sm:grid-cols-4"><Metric label="Total" value={campaign.progress.total} /><Metric label="Queued" value={campaign.progress.queued + campaign.progress.retry_scheduled} /><Metric label="In call" value={campaign.progress.calling + campaign.progress.connected} /><Metric label="Finished" value={campaign.progress.completed + campaign.progress.invalid_number + campaign.progress.exhausted} /></div>
     <div className="mt-5 overflow-x-auto border border-[#d8d5cc] bg-[#fffefa]"><table className="w-full min-w-[760px] text-left"><thead className="border-b border-[#d8d5cc] bg-[#f7f6f2] text-xs uppercase text-[#6d6b64]"><tr><th className="px-4 py-3">Lead</th><th className="px-4 py-3">State</th><th className="px-4 py-3">Attempts</th><th className="px-4 py-3">Next action</th></tr></thead><tbody className="divide-y divide-[#e3e0d8]">{campaign.enrollments.map((item) => <tr key={item.id}><td className="px-4 py-4"><Link className="font-bold hover:text-[#d73a2f]" href={`/leads/${item.lead_id}` as Route}>{item.lead_name}</Link><p className="mt-1 text-xs text-[#6d6b64]">{item.lead_phone_number}</p></td><td className="px-4 py-4 text-sm">{item.status.replaceAll("_", " ")}{item.last_error_code ? <p className="mt-1 text-xs text-[#8f221c]">{item.last_error_code.replaceAll("_", " ")}</p> : null}</td><td className="px-4 py-4 text-sm">{item.attempt_count}<div className="mt-1 flex gap-1">{item.attempts.map((attempt) => <span className="inline-flex size-6 items-center justify-center border border-[#d8d5cc] text-[10px]" key={attempt.id} title={attempt.failure_detail ?? attempt.status}>{attempt.attempt_number}</span>)}</div></td><td className="px-4 py-4 text-xs text-[#6d6b64]">{item.next_attempt_at ? new Date(item.next_attempt_at).toLocaleString() : "-"}</td></tr>)}</tbody></table></div>

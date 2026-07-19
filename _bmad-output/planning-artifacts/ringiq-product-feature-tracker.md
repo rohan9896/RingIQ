@@ -1,6 +1,6 @@
 # RingIQ Product Feature Tracker
 
-**Last updated:** 2026-07-18  
+**Last updated:** 2026-07-19  
 **Product scope:** Real-estate-first Voice AI lead qualification SaaS  
 **Delivery state:** Local implementation and verification; not a deployment checklist
 
@@ -19,7 +19,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 |---|---|---|---|
 | Platform foundation | `[-]` | Monorepo, FastAPI backend, Next.js web app, PostgreSQL migrations, and Postgres-backed API tests | Deployment, monitoring, production operations |
 | Identity and access | `[-]` | Clerk custom sign-in/sign-up UI, tenant and platform identity realms, role-aware backend contexts | Tenant user and organization lifecycle administration |
-| Category templates | `[x]` | Platform category and starter KB template CRUD, questions, draft editing, and publication | Seeded initial templates for production |
+| Category templates | `[x]` | Platform category and starter KB template CRUD, questions, draft editing, publication, and real-estate draft seed action | Seeded initial templates for production deployment |
 | Tenant knowledge base | `[x]` | Tenant can select a published starter template, create a draft, answer/edit questions, and publish it | Retrieval indexing and use during production calls |
 | Lead imports | `[x]` | Tenant CSV import, validation, lead management, campaign selection, and lead campaign/call history | AI qualification outcomes |
 | Voice AI demo | `[x]` | Outbound SIP demo call with LiveKit, Deepgram, Groq, Sarvam, and pipeline/latency logs | Tenant-grounded production calling workflow |
@@ -36,6 +36,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Next.js TypeScript web app bootstrap with the established RingIQ visual theme.
 - [x] PostgreSQL as the only application and test database; Alembic migrations and PostgreSQL test coverage are in place.
 - [x] Clerk custom authentication UI for sign-in and sign-up.
+- [x] Platform sign-in flow gates organizationless RingIQ users into the platform console.
 - [x] Tenant workspace gating: authenticated users must have an organization before entering the tenant workspace.
 - [x] Separate tenant and RingIQ platform identity realms.
 - [x] Platform roles: super admin, operations, and template manager.
@@ -55,6 +56,8 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Draft templates can be edited and published.
 - [x] Published templates are protected from edits.
 - [x] Platform template console UI is available.
+- [x] Platform dashboard shows live aggregate organization, user, category, and template counts.
+- [x] Platform users can seed the first real-estate category and starter KB draft from the dashboard.
 - [ ] Seed the first production real-estate category and starter template as part of deployment.
 - [ ] Archive/deactivate workflow for categories and template versions, including tenant-facing behavior.
 
@@ -152,6 +155,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 ## 10. Platform Administration
 
 - [x] Platform console and platform sign-in route are available.
+- [x] Platform overview dashboard is backed by aggregate metadata and keeps tenant-private content outside the console.
 - [x] Platform template management is available, without access to tenant private KB, leads, recordings, or transcripts.
 - [ ] Platform organization list and organization status management.
 - [ ] Platform organization-user list and support metadata.

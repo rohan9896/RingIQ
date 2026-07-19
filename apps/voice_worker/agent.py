@@ -34,6 +34,13 @@ class _OpeningResponse:
     completes_opening: bool = False
 
 
+@dataclass(frozen=True)
+class _RecordingHandle:
+    egress_id: str
+    storage_uri: str
+    playback_url: str | None
+
+
 def _call_context(metadata: dict[str, Any]) -> dict[str, Any]:
     raw_context = metadata.get("agent_context_json")
     try:
@@ -248,6 +255,25 @@ def _callback_confirmation(transcript: str) -> bool | None:
     return None
 
 
+def _duration_limit_closing_message(
+    language: str | None,
+    transcript: str,
+) -> str:
+    language_code = (language or "").casefold()
+    is_hindi = language_code.startswith("hi") or bool(
+        re.search(r"[\u0900-\u097f]", transcript)
+    )
+    if is_hindi:
+        return (
+            "Aapki interest ke liye dhanyavaad. "
+            "Hamari sales team aapko jaldi callback karegi."
+        )
+    return (
+        "Thank you for your interest. "
+        "Our sales team will call you back shortly."
+    )
+
+
 class _RingIQVoiceAgent(Agent):
     def __init__(
         self,
@@ -459,6 +485,200 @@ def _schedule_pipeline_event(
     )
 
 
+def _conversation_transcript(session: AgentSession) -> list[dict[str, Any]]:
+    history = getattr(session, "history", None)
+    turns: list[dict[str, Any]] = []
+    for item in getattr(history, "items", []):
+        role = getattr(item, "role", "")
+        role = getattr(role, "value", role)
+        text = (getattr(item, "text_content", None) or "").strip()
+        if role not in {"user", "assistant"} or not text:
+            continue
+        turns.append(
+            {
+                "role": role,
+                "text": text,
+                "interrupted": bool(getattr(item, "interrupted", False)),
+            }
+        )
+    return turns[-500:]
+
+
+async def _store_call_artifacts(
+    metadata: dict[str, Any],
+    payload: dict[str, Any],
+) -> bool:
+    call_attempt_id = metadata.get("call_attempt_id")
+    internal_api_key = os.getenv("RINGIQ_INTERNAL_API_KEY")
+    if not call_attempt_id or not internal_api_key:
+        return False
+    api_base_url = os.getenv("RINGIQ_API_BASE_URL", DEFAULT_API_BASE_URL).rstrip("/")
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with http.post(
+                f"{api_base_url}/v1/internal/call-attempts/{call_attempt_id}/artifacts",
+                json=payload,
+                headers={"X-RingIQ-Internal-Key": internal_api_key},
+                timeout=5,
+            ) as response:
+                if response.status >= 300:
+                    logger.warning(
+                        "Call artifact update failed status=%s attempt_id=%s",
+                        response.status,
+                        call_attempt_id,
+                    )
+                    return False
+    except Exception as exc:
+        logger.warning(
+            "Call artifact update failed attempt_id=%s error=%s",
+            call_attempt_id,
+            exc,
+        )
+        return False
+    return True
+
+
+async def _start_call_recording(
+    ctx: JobContext,
+    metadata: dict[str, Any],
+) -> _RecordingHandle | None:
+    if not _bool_env("LIVEKIT_RECORDING_ENABLED", False):
+        return None
+
+    required_names = (
+        "LIVEKIT_RECORDING_S3_BUCKET",
+        "LIVEKIT_RECORDING_S3_REGION",
+        "LIVEKIT_RECORDING_S3_ACCESS_KEY",
+        "LIVEKIT_RECORDING_S3_SECRET",
+    )
+    config = {name: os.getenv(name, "").strip() for name in required_names}
+    missing = [name for name, value in config.items() if not value]
+    if missing:
+        logger.error("Recording disabled for this call; missing settings=%s", missing)
+        return None
+
+    tenant_id = re.sub(r"[^A-Za-z0-9_-]", "", str(metadata.get("tenant_id", "unknown")))
+    call_id = re.sub(
+        r"[^A-Za-z0-9_-]",
+        "",
+        str(metadata.get("call_attempt_id") or metadata.get("call_id") or ctx.job.id),
+    )
+    prefix = os.getenv("LIVEKIT_RECORDING_PATH_PREFIX", "ringiq/recordings").strip("/")
+    filepath = f"{prefix}/{tenant_id}/{call_id}.mp3"
+    public_base_url = os.getenv("LIVEKIT_RECORDING_PUBLIC_BASE_URL", "").rstrip("/")
+    playback_url = f"{public_base_url}/{filepath}" if public_base_url else None
+    storage_uri = f"s3://{config['LIVEKIT_RECORDING_S3_BUCKET']}/{filepath}"
+
+    lkapi = api.LiveKitAPI(
+        url=os.getenv("LIVEKIT_URL"),
+        api_key=os.getenv("LIVEKIT_API_KEY"),
+        api_secret=os.getenv("LIVEKIT_API_SECRET"),
+    )
+    try:
+        response = await lkapi.egress.start_room_composite_egress(
+            api.RoomCompositeEgressRequest(
+                room_name=ctx.room.name,
+                audio_only=True,
+                audio_mixing=api.AudioMixing.DUAL_CHANNEL_AGENT,
+                file_outputs=[
+                    api.EncodedFileOutput(
+                        file_type=api.EncodedFileType.MP3,
+                        filepath=filepath,
+                        s3=api.S3Upload(
+                            access_key=config["LIVEKIT_RECORDING_S3_ACCESS_KEY"],
+                            secret=config["LIVEKIT_RECORDING_S3_SECRET"],
+                            region=config["LIVEKIT_RECORDING_S3_REGION"],
+                            endpoint=os.getenv("LIVEKIT_RECORDING_S3_ENDPOINT", ""),
+                            bucket=config["LIVEKIT_RECORDING_S3_BUCKET"],
+                            force_path_style=_bool_env(
+                                "LIVEKIT_RECORDING_S3_FORCE_PATH_STYLE", False
+                            ),
+                        ),
+                    )
+                ],
+            )
+        )
+    except Exception as exc:
+        logger.warning("LiveKit recording could not start room=%s error=%s", ctx.room.name, exc)
+        await _store_call_artifacts(metadata, {"recording_status": "failed"})
+        return None
+    finally:
+        await lkapi.aclose()
+
+    handle = _RecordingHandle(
+        egress_id=response.egress_id,
+        storage_uri=storage_uri,
+        playback_url=playback_url,
+    )
+    await _store_call_artifacts(
+        metadata,
+        {
+            "recording_egress_id": handle.egress_id,
+            "recording_status": "recording",
+            "recording_storage_uri": handle.storage_uri,
+            "recording_url": handle.playback_url,
+        },
+    )
+    logger.info("LiveKit recording started room=%s egress_id=%s", ctx.room.name, handle.egress_id)
+    return handle
+
+
+async def _stop_call_recording(handle: _RecordingHandle) -> str:
+    lkapi = api.LiveKitAPI(
+        url=os.getenv("LIVEKIT_URL"),
+        api_key=os.getenv("LIVEKIT_API_KEY"),
+        api_secret=os.getenv("LIVEKIT_API_SECRET"),
+    )
+    try:
+        response = await lkapi.egress.stop_egress(
+            api.StopEgressRequest(egress_id=handle.egress_id)
+        )
+        timeout_seconds = float(
+            os.getenv("LIVEKIT_RECORDING_FINALIZE_TIMEOUT_SECONDS", "30")
+        )
+        deadline = asyncio.get_running_loop().time() + timeout_seconds
+        while True:
+            status_name = api.EgressStatus.Name(response.status)
+            if status_name == "EGRESS_COMPLETE":
+                logger.info("LiveKit recording finalized egress_id=%s", handle.egress_id)
+                return "available"
+            if status_name in {"EGRESS_FAILED", "EGRESS_ABORTED", "EGRESS_LIMIT_REACHED"}:
+                logger.warning(
+                    "LiveKit recording failed egress_id=%s status=%s error=%s",
+                    handle.egress_id,
+                    status_name,
+                    response.error,
+                )
+                return "failed"
+            if asyncio.get_running_loop().time() >= deadline:
+                logger.warning(
+                    "LiveKit recording finalization timed out egress_id=%s status=%s",
+                    handle.egress_id,
+                    status_name,
+                )
+                return "failed"
+            await asyncio.sleep(1)
+            result = await lkapi.egress.list_egress(
+                api.ListEgressRequest(egress_id=handle.egress_id)
+            )
+            if not result.items:
+                logger.warning(
+                    "LiveKit recording disappeared during finalization egress_id=%s",
+                    handle.egress_id,
+                )
+                return "failed"
+            response = result.items[0]
+    except Exception as exc:
+        logger.warning(
+            "LiveKit recording could not be finalized egress_id=%s error=%s",
+            handle.egress_id,
+            exc,
+        )
+        return "failed"
+    finally:
+        await lkapi.aclose()
+
+
 def prewarm(proc: agents.JobProcess) -> None:
     logger.info("Prewarming Silero VAD for the next voice job")
     proc.userdata[PREWARMED_VAD_KEY] = silero.VAD.load()
@@ -523,6 +743,13 @@ async def entrypoint(ctx: JobContext) -> None:
     preemptive_tts = _bool_env("LIVEKIT_PREEMPTIVE_TTS", True)
     sip_participant_wait_timeout = float(
         os.getenv("LIVEKIT_SIP_PARTICIPANT_WAIT_TIMEOUT_SECONDS", "60")
+    )
+    call_idle_timeout = max(
+        1.0, float(os.getenv("LIVEKIT_CALL_IDLE_TIMEOUT_SECONDS", "15"))
+    )
+    call_max_duration = max(
+        call_idle_timeout,
+        float(os.getenv("LIVEKIT_CALL_MAX_DURATION_SECONDS", "180")),
     )
 
     _schedule_pipeline_event(
@@ -602,11 +829,64 @@ async def entrypoint(ctx: JobContext) -> None:
             output_audio_codec=sarvam_output_audio_codec,
         ),
     )
+    recording_task: asyncio.Task[_RecordingHandle | None] | None = None
+    artifacts_persisted = False
+    artifacts_lock = asyncio.Lock()
+    call_ending = asyncio.Event()
+    activity_event = asyncio.Event()
+    last_activity_at = asyncio.get_running_loop().time()
+    speaking = {"user": False, "agent": False}
+    customer_language: str | None = None
+    customer_transcript = ""
+    lifecycle_tasks: list[asyncio.Task[None]] = []
+
+    def _mark_activity() -> None:
+        nonlocal last_activity_at
+        last_activity_at = asyncio.get_running_loop().time()
+        activity_event.set()
+
+    async def _cancel_lifecycle_tasks() -> None:
+        current_task = asyncio.current_task()
+        pending = [task for task in lifecycle_tasks if task is not current_task]
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    async def _persist_call_artifacts() -> None:
+        nonlocal artifacts_persisted
+        async with artifacts_lock:
+            if artifacts_persisted:
+                return
+            artifacts_persisted = True
+            try:
+                recording = await recording_task if recording_task is not None else None
+            except asyncio.CancelledError:
+                recording = None
+            except Exception as exc:
+                logger.warning("Recording task failed during shutdown: %s", exc)
+                recording = None
+            payload: dict[str, Any] = {"transcript": _conversation_transcript(session)}
+            if recording is not None:
+                payload.update(
+                    {
+                        "recording_egress_id": recording.egress_id,
+                        "recording_status": await _stop_call_recording(recording),
+                        "recording_storage_uri": recording.storage_uri,
+                        "recording_url": recording.playback_url,
+                    }
+                )
+            await _store_call_artifacts(metadata, payload)
+
+    ctx.add_shutdown_callback(_cancel_lifecycle_tasks)
+    ctx.add_shutdown_callback(_persist_call_artifacts)
 
     @session.on("conversation_item_added")
     def _log_turn_latency(event: Any) -> None:
         item = getattr(event, "item", None)
         role = getattr(item, "role", None)
+        if role in {"user", "assistant"}:
+            _mark_activity()
         metrics = getattr(item, "metrics", None) or {}
         if role not in {"user", "assistant"} or not metrics:
             return
@@ -642,7 +922,41 @@ async def entrypoint(ctx: JobContext) -> None:
             )
         )
 
-    async def _end_completed_call() -> None:
+    @session.on("user_state_changed")
+    def _track_user_state(event: Any) -> None:
+        new_state = getattr(event, "new_state", "")
+        speaking["user"] = str(getattr(new_state, "value", new_state)) == "speaking"
+        _mark_activity()
+
+    @session.on("agent_state_changed")
+    def _track_agent_state(event: Any) -> None:
+        new_state = getattr(event, "new_state", "")
+        speaking["agent"] = str(getattr(new_state, "value", new_state)) == "speaking"
+        _mark_activity()
+
+    @session.on("user_input_transcribed")
+    def _track_customer_language(event: Any) -> None:
+        nonlocal customer_language, customer_transcript
+        if not getattr(event, "is_final", False):
+            return
+        customer_transcript = str(getattr(event, "transcript", "") or "")
+        detected_language = getattr(event, "language", None)
+        if detected_language:
+            customer_language = str(detected_language)
+        _mark_activity()
+
+    @session.on("error")
+    def _track_pipeline_error(event: Any) -> None:
+        logger.warning(
+            "Voice pipeline error; starting recovery timeout source=%s error=%s",
+            getattr(event, "source", "unknown"),
+            getattr(event, "error", "unknown"),
+        )
+        speaking["user"] = False
+        speaking["agent"] = False
+        _mark_activity()
+
+    async def _finalize_call(reason: str) -> None:
         lkapi = api.LiveKitAPI(
             url=os.getenv("LIVEKIT_URL"),
             api_key=os.getenv("LIVEKIT_API_KEY"),
@@ -650,12 +964,86 @@ async def entrypoint(ctx: JobContext) -> None:
         )
         try:
             await lkapi.room.delete_room(api.DeleteRoomRequest(room=ctx.room.name))
-            logger.info("Qualification complete; ended LiveKit room=%s", ctx.room.name)
+            logger.info("Ended LiveKit room=%s reason=%s", ctx.room.name, reason)
         except Exception as exc:
-            logger.warning("Failed to end completed call room=%s error=%s", ctx.room.name, exc)
+            logger.warning("Failed to end call room=%s error=%s", ctx.room.name, exc)
         finally:
             await lkapi.aclose()
-            ctx.shutdown(reason="qualification and callback preference complete")
+            await _persist_call_artifacts()
+            await _report_call_result(metadata, "completed")
+            ctx.shutdown(reason=reason)
+
+    async def _end_completed_call() -> None:
+        if call_ending.is_set():
+            return
+        call_ending.set()
+        await _finalize_call("qualification and callback preference complete")
+
+    async def _end_inactive_call() -> None:
+        if call_ending.is_set():
+            return
+        call_ending.set()
+        _schedule_pipeline_event(
+            metadata,
+            stage="call_inactivity_timeout",
+            provider="LiveKit Agents",
+            status="warning",
+            message="Call ended after sustained inactivity or unrecovered pipeline error",
+            extra_metadata={"timeout_seconds": str(call_idle_timeout)},
+        )
+        await _finalize_call(
+            f"call inactive for {call_idle_timeout:g} seconds"
+        )
+
+    async def _end_duration_limited_call() -> None:
+        if call_ending.is_set():
+            return
+        call_ending.set()
+        _schedule_pipeline_event(
+            metadata,
+            stage="call_duration_limit",
+            provider="LiveKit Agents",
+            status="warning",
+            message="Call reached the qualification duration limit",
+            extra_metadata={"duration_seconds": str(call_max_duration)},
+        )
+        closing_message = _duration_limit_closing_message(
+            customer_language,
+            customer_transcript,
+        )
+        try:
+            session.interrupt()
+        except Exception:
+            pass
+        try:
+            speech_handle = session.say(closing_message, allow_interruptions=False)
+            await speech_handle.wait_for_playout()
+        except Exception as exc:
+            logger.warning("Duration-limit closing message failed: %s", exc)
+        await _finalize_call("call reached maximum qualification duration")
+
+    async def _watch_for_inactivity() -> None:
+        while not call_ending.is_set():
+            if speaking["user"] or speaking["agent"]:
+                activity_event.clear()
+                await activity_event.wait()
+                continue
+            remaining = call_idle_timeout - (
+                asyncio.get_running_loop().time() - last_activity_at
+            )
+            if remaining <= 0:
+                await _end_inactive_call()
+                return
+            activity_event.clear()
+            try:
+                await asyncio.wait_for(activity_event.wait(), timeout=remaining)
+            except asyncio.TimeoutError:
+                await _end_inactive_call()
+                return
+
+    async def _watch_call_duration() -> None:
+        await asyncio.sleep(call_max_duration)
+        await _end_duration_limited_call()
 
     await session.start(
         room=ctx.room,
@@ -715,12 +1103,21 @@ async def entrypoint(ctx: JobContext) -> None:
         return
 
     logger.info("SIP participant connected: identity=%s", participant.identity)
+    _mark_activity()
+    lifecycle_tasks.extend(
+        [
+            asyncio.create_task(_watch_for_inactivity()),
+            asyncio.create_task(_watch_call_duration()),
+        ]
+    )
+    recording_task = asyncio.create_task(_start_call_recording(ctx, metadata))
     asyncio.create_task(_report_call_result(metadata, "connected"))
 
     @ctx.room.on("participant_disconnected")
     def _on_participant_disconnected(disconnected_participant: Any) -> None:
         if disconnected_participant.identity != participant.identity:
             return
+        call_ending.set()
         asyncio.create_task(_report_call_result(metadata, "completed"))
 
     _schedule_pipeline_event(

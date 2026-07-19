@@ -23,11 +23,14 @@ from apps.api.ringiq_api.models.campaigns import (
 from apps.api.ringiq_api.models.identity import Tenant
 from apps.api.ringiq_api.models.leads import Lead, LeadImport, LeadStatus
 from apps.api.ringiq_api.schemas.campaigns import (
+    CallActivityResponse,
+    CallArtifactsUpdateRequest,
     CallAttemptResponse,
     CallAttemptResultRequest,
     CampaignCreateRequest,
     CampaignDetailResponse,
     CampaignEnrollmentResponse,
+    CampaignKnowledgeBaseResponse,
     CampaignLeadHistoryResponse,
     CampaignProgressResponse,
     CampaignReadinessResponse,
@@ -43,8 +46,55 @@ from apps.api.ringiq_api.services.campaign_operations import (
     queue_campaign,
     utcnow,
 )
+from apps.api.ringiq_api.services.recording_storage import presigned_recording_url
 
 router = APIRouter(prefix="/v1", tags=["campaigns"])
+
+
+@router.get("/calls", response_model=list[CallActivityResponse])
+async def list_calls(
+    context: TenantContext = Depends(get_current_tenant_context),
+    settings: AppSettings = Depends(get_app_settings),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[CallActivityResponse]:
+    rows = (
+        await session.execute(
+            select(CallAttempt, CampaignEnrollment, Campaign, Lead)
+            .join(
+                CampaignEnrollment,
+                CampaignEnrollment.id == CallAttempt.campaign_enrollment_id,
+            )
+            .join(Campaign, Campaign.id == CampaignEnrollment.campaign_id)
+            .join(Lead, Lead.id == CampaignEnrollment.lead_id)
+            .where(CallAttempt.tenant_id == context.tenant_id)
+            .order_by(CallAttempt.created_at.desc())
+            .limit(200)
+        )
+    ).all()
+    return [
+        CallActivityResponse(
+            id=attempt.id,
+            lead_id=lead.id,
+            lead_name=lead.name,
+            lead_phone_number=lead.phone_number,
+            campaign_id=campaign.id,
+            campaign_name=campaign.name,
+            attempt_number=attempt.attempt_number,
+            status=attempt.status,
+            started_at=attempt.started_at,
+            answered_at=attempt.answered_at,
+            ended_at=attempt.ended_at,
+            duration_seconds=attempt.duration_seconds,
+            transcript=attempt.transcript_json,
+            recording_status=attempt.recording_status,
+            recording_url=presigned_recording_url(
+                attempt.recording_storage_uri,
+                attempt.recording_url,
+                settings,
+            ),
+        )
+        for attempt, _, campaign, lead in rows
+    ]
 
 
 async def _commit(session: AsyncSession, detail: str) -> None:
@@ -73,11 +123,23 @@ async def _campaign_response(
     session: AsyncSession,
     campaign: Campaign,
 ) -> CampaignResponse:
-    blockers, _ = await campaign_readiness(session, campaign)
+    blockers, knowledge_version = await campaign_readiness(session, campaign)
     counts = await campaign_counts(session, campaign.id)
     progress = CampaignProgressResponse(
         total=sum(counts.values()),
         **{key: value for key, value in counts.items() if key in CampaignProgressResponse.model_fields},
+    )
+    knowledge_base = (
+        CampaignKnowledgeBaseResponse(
+            id=knowledge_version.id,
+            title=knowledge_version.title,
+            version=knowledge_version.version,
+            status=knowledge_version.status,
+            category_id=knowledge_version.category_id,
+            is_pinned=campaign.knowledge_base_version_id == knowledge_version.id,
+        )
+        if knowledge_version is not None
+        else None
     )
     return CampaignResponse(
         id=campaign.id,
@@ -85,6 +147,7 @@ async def _campaign_response(
         status=campaign.status,
         source_import_id=campaign.source_import_id,
         knowledge_base_version_id=campaign.knowledge_base_version_id,
+        knowledge_base=knowledge_base,
         retry_limit=campaign.retry_limit,
         retry_policy_json=campaign.retry_policy_json,
         started_at=campaign.started_at,
@@ -205,9 +268,10 @@ async def create_campaign(
     add_outbox_event(session, campaign, "campaign.created", {"lead_count": len(leads)})
     await _commit(session, "campaign_create_conflict")
     campaign = await _require_campaign(session, context.tenant_id, campaign.id)
-    blockers, _ = await campaign_readiness(session, campaign)
-    if not blockers:
+    blockers, active_version = await campaign_readiness(session, campaign)
+    if not blockers and active_version is not None:
         campaign.status = CampaignStatus.READY.value
+        campaign.knowledge_base_version_id = active_version.id
         await _commit(session, "campaign_readiness_conflict")
         campaign = await _require_campaign(session, context.tenant_id, campaign.id)
     return await _campaign_detail_response(session, campaign)
@@ -283,11 +347,11 @@ async def start_campaign(
     campaign = await _require_campaign(session, context.tenant_id, campaign_id)
     if campaign.status not in {CampaignStatus.DRAFT.value, CampaignStatus.READY.value}:
         raise HTTPException(status_code=409, detail="campaign_not_startable")
-    blockers, active_version = await campaign_readiness(session, campaign)
-    if blockers or active_version is None:
+    blockers, knowledge_version = await campaign_readiness(session, campaign)
+    if blockers or knowledge_version is None:
         raise HTTPException(status_code=422, detail={"code": "campaign_not_ready", "blockers": blockers})
     campaign.status = CampaignStatus.RUNNING.value
-    campaign.knowledge_base_version_id = active_version.id
+    campaign.knowledge_base_version_id = knowledge_version.id
     campaign.started_at = utcnow()
     campaign.updated_by_user_id = context.user_id
     await queue_campaign(session, campaign)
@@ -529,3 +593,37 @@ async def record_internal_call_attempt_result(
     )
     await _commit(session, "call_attempt_result_conflict")
     return {"status": "applied"}
+
+
+@router.post("/internal/call-attempts/{attempt_id}/artifacts")
+async def record_internal_call_artifacts(
+    attempt_id: uuid.UUID,
+    payload: CallArtifactsUpdateRequest,
+    internal_key: str | None = Header(default=None, alias="X-RingIQ-Internal-Key"),
+    settings: AppSettings = Depends(get_app_settings),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    if (
+        not settings.internal_api_key
+        or not internal_key
+        or not secrets.compare_digest(internal_key, settings.internal_api_key)
+    ):
+        raise HTTPException(status_code=401, detail="invalid_internal_api_key")
+    attempt = await session.get(CallAttempt, attempt_id)
+    if attempt is None:
+        raise HTTPException(status_code=404, detail="call_attempt_not_found")
+
+    supplied_fields = payload.model_fields_set
+    if "transcript" in supplied_fields:
+        attempt.transcript_json = [turn.model_dump() for turn in payload.transcript or []]
+    for field_name in (
+        "recording_egress_id",
+        "recording_status",
+        "recording_storage_uri",
+        "recording_url",
+    ):
+        if field_name in supplied_fields:
+            setattr(attempt, field_name, getattr(payload, field_name))
+
+    await _commit(session, "call_artifacts_store_conflict")
+    return {"status": "stored"}

@@ -91,6 +91,21 @@ export type PlatformIdentity = {
   role: PlatformRole;
 };
 
+export type PlatformOverview = {
+  counts: {
+    organizations: number;
+    active_organizations: number;
+    suspended_organizations: number;
+    tenant_users: number;
+    platform_users: number;
+    categories: number;
+    active_categories: number;
+    draft_templates: number;
+    published_templates: number;
+  };
+  first_template_seeded: boolean;
+};
+
 export async function fetchPlatformIdentity(token: string) {
   const response = await fetch(`${apiBaseUrl}/v1/platform/me`, {
     headers: {
@@ -183,6 +198,21 @@ async function platformRequest<T>(token: string, path: string, options?: Request
 
 export function fetchPlatformCategories(token: string) {
   return platformRequest<PlatformCategory[]>(token, "/categories");
+}
+
+export function fetchPlatformOverview(token: string) {
+  return platformRequest<PlatformOverview>(token, "/overview");
+}
+
+export function seedRealEstateStarterTemplate(token: string) {
+  return platformRequest<{
+    category: PlatformCategory;
+    template_version: PlatformTemplateVersion;
+    created_category: boolean;
+    created_template: boolean;
+  }>(token, "/starter-template-seeds/real-estate", {
+    method: "POST",
+  });
 }
 
 export function createPlatformCategory(
@@ -490,7 +520,44 @@ export type CallAttempt = {
   failure_detail: string | null;
 };
 
+export type TranscriptTurn = {
+  role: "user" | "assistant";
+  text: string;
+  interrupted: boolean;
+};
+
+export type CallActivity = {
+  id: string;
+  lead_id: string;
+  lead_name: string;
+  lead_phone_number: string;
+  campaign_id: string;
+  campaign_name: string;
+  attempt_number: number;
+  status: string;
+  started_at: string | null;
+  answered_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  transcript: TranscriptTurn[];
+  recording_status: string | null;
+  recording_url: string | null;
+};
+
+export function fetchCalls(token: string) {
+  return leadsRequest<CallActivity[]>(token, "/calls");
+}
+
 export type CampaignProgress = Record<EnrollmentStatus, number> & { total: number };
+
+export type CampaignKnowledgeBase = {
+  id: string;
+  title: string;
+  version: number;
+  status: string;
+  category_id: string | null;
+  is_pinned: boolean;
+};
 
 export type Campaign = {
   id: string;
@@ -498,6 +565,7 @@ export type Campaign = {
   status: CampaignStatus;
   source_import_id: string | null;
   knowledge_base_version_id: string | null;
+  knowledge_base: CampaignKnowledgeBase | null;
   retry_limit: number;
   retry_policy_json: Record<string, unknown>;
   started_at: string | null;

@@ -23,6 +23,15 @@ class CampaignReadinessResponse(BaseModel):
     blockers: list[str]
 
 
+class CampaignKnowledgeBaseResponse(BaseModel):
+    id: uuid.UUID
+    title: str
+    version: int
+    status: str
+    category_id: uuid.UUID | None
+    is_pinned: bool
+
+
 class CampaignProgressResponse(BaseModel):
     total: int
     pending: int = 0
@@ -73,6 +82,7 @@ class CampaignResponse(BaseModel):
     status: CampaignStatus
     source_import_id: uuid.UUID | None
     knowledge_base_version_id: uuid.UUID | None
+    knowledge_base: CampaignKnowledgeBaseResponse | None
     retry_limit: int
     retry_policy_json: dict[str, Any]
     started_at: datetime | None
@@ -100,6 +110,38 @@ class CallAttemptResultRequest(BaseModel):
     duration_seconds: int | None = Field(default=None, ge=0)
     failure_code: str | None = Field(default=None, max_length=100)
     failure_detail: str | None = Field(default=None, max_length=2000)
+
+
+class TranscriptTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1, max_length=10_000)
+    interrupted: bool = False
+
+
+class CallArtifactsUpdateRequest(BaseModel):
+    transcript: list[TranscriptTurn] | None = Field(default=None, max_length=500)
+    recording_egress_id: str | None = Field(default=None, max_length=255)
+    recording_status: Literal["recording", "available", "failed"] | None = None
+    recording_storage_uri: str | None = Field(default=None, max_length=2000)
+    recording_url: str | None = Field(default=None, max_length=2000)
+
+
+class CallActivityResponse(BaseModel):
+    id: uuid.UUID
+    lead_id: uuid.UUID
+    lead_name: str
+    lead_phone_number: str
+    campaign_id: uuid.UUID
+    campaign_name: str
+    attempt_number: int
+    status: CallAttemptStatus
+    started_at: datetime | None
+    answered_at: datetime | None
+    ended_at: datetime | None
+    duration_seconds: int | None
+    transcript: list[TranscriptTurn]
+    recording_status: str | None
+    recording_url: str | None
 
 
 class CampaignLeadHistoryResponse(BaseModel):

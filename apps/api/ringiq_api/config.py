@@ -14,6 +14,27 @@ class AppSettings(BaseSettings):
         "http://localhost:3000,http://localhost:3001",
         alias="CORS_ALLOWED_ORIGINS",
     )
+    recording_s3_bucket: str | None = Field(
+        default=None, alias="LIVEKIT_RECORDING_S3_BUCKET"
+    )
+    recording_s3_region: str | None = Field(
+        default=None, alias="LIVEKIT_RECORDING_S3_REGION"
+    )
+    recording_s3_access_key: str | None = Field(
+        default=None, alias="LIVEKIT_RECORDING_S3_ACCESS_KEY"
+    )
+    recording_s3_secret: str | None = Field(
+        default=None, alias="LIVEKIT_RECORDING_S3_SECRET"
+    )
+    recording_s3_endpoint: str | None = Field(
+        default=None, alias="LIVEKIT_RECORDING_S3_ENDPOINT"
+    )
+    recording_url_expiry_seconds: int = Field(
+        default=900,
+        alias="LIVEKIT_RECORDING_URL_EXPIRY_SECONDS",
+        ge=60,
+        le=3600,
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

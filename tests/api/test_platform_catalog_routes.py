@@ -224,3 +224,81 @@ def test_duplicate_question_order_is_rejected(
 
     assert response.status_code == 422
     assert response.json()["detail"] == "duplicate_question_display_order"
+
+
+def test_platform_overview_returns_live_counts(
+    platform_client: tuple[TestClient, PlatformContext],
+) -> None:
+    client, _ = platform_client
+
+    category = client.post(
+        "/v1/platform/categories",
+        json={"key": "real_estate", "name": "Real Estate"},
+    ).json()
+    client.post(
+        f"/v1/platform/categories/{category['id']}/template-versions",
+        json=make_template_payload(),
+    )
+
+    response = client.get("/v1/platform/overview")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["counts"]["platform_users"] == 1
+    assert body["counts"]["categories"] == 1
+    assert body["counts"]["active_categories"] == 1
+    assert body["counts"]["draft_templates"] == 1
+    assert body["first_template_seeded"] is False
+
+
+def test_real_estate_starter_template_seed_is_idempotent(
+    platform_client: tuple[TestClient, PlatformContext],
+) -> None:
+    client, _ = platform_client
+
+    first_response = client.post("/v1/platform/starter-template-seeds/real-estate")
+    second_response = client.post("/v1/platform/starter-template-seeds/real-estate")
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    first = first_response.json()
+    second = second_response.json()
+    assert first["created_category"] is True
+    assert first["created_template"] is True
+    assert second["created_category"] is False
+    assert second["created_template"] is False
+    assert first["category"]["key"] == "real_estate"
+    assert first["template_version"]["title"] == "Real estate lead qualification starter"
+    assert len(first["template_version"]["qna_questions"]) == 6
+    assert second["template_version"]["id"] == first["template_version"]["id"]
+
+    overview = client.get("/v1/platform/overview").json()
+    assert overview["counts"]["categories"] == 1
+    assert overview["counts"]["draft_templates"] == 1
+    assert overview["first_template_seeded"] is True
+
+
+def test_operations_role_cannot_seed_real_estate_template() -> None:
+    engine = create_test_engine()
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    context = make_platform_context(PlatformRole.OPERATIONS)
+
+    async def setup() -> None:
+        await reset_database(engine)
+        await create_platform_user(session_factory, context)
+
+    async def override_session() -> AsyncIterator[AsyncSession]:
+        async with session_factory() as session:
+            yield session
+
+    asyncio.run(setup())
+    app = create_app()
+    app.dependency_overrides[get_current_platform_context] = lambda: context
+    app.dependency_overrides[get_db_session] = override_session
+
+    with TestClient(app) as client:
+        response = client.post("/v1/platform/starter-template-seeds/real-estate")
+
+    asyncio.run(engine.dispose())
+    assert response.status_code == 403
+    assert response.json()["detail"] == "platform_role_not_allowed"
