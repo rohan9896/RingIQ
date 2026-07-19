@@ -7,7 +7,7 @@ Planned responsibilities:
 - Join LiveKit call sessions.
 - Coordinate Deepgram Flux STT.
 - Retrieve tenant knowledge.
-- Call Groq `llama-3.3-70b-versatile`.
+- Call Groq `openai/gpt-oss-20b`.
 - Coordinate Sarvam AI TTS.
 - Manage per-call conversation state.
 - Emit call events, transcripts, classifications, callback intent, and knowledge gaps.

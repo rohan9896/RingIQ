@@ -95,7 +95,7 @@ flowchart TD
 | LiveKit Real-Time Session Layer | Real-time media/session layer for voice-agent calls, including audio flow between telephony and the AI worker. |
 | Voice AI Worker | Runtime process that coordinates STT, retrieval, LLM reasoning, TTS, call state, classification, and event logging during a live call. |
 | Deepgram Flux STT | Speech-to-text provider for transcribing lead speech during real-time conversational calls. Flux is selected for v1 because it is oriented toward conversational voice agents. |
-| Groq LLM Orchestration | LLM inference provider. `llama-3.3-70b-versatile` is selected for v1 orchestration. |
+| Groq LLM Orchestration | LLM inference provider. `openai/gpt-oss-20b` is selected for v1 orchestration. |
 | Sarvam AI TTS | Text-to-speech provider for natural Indian-language voice output, using Sarvam's Bulbul v3 family. |
 | Dashboard + Lead Follow-Up Queue | Tenant-facing view of interested leads, callback requests, summaries, transcripts, recordings, and knowledge gaps. |
 
@@ -163,7 +163,7 @@ LangGraph is not required for v1 unless the call orchestration becomes meaningfu
 | Telephony | Vobiz over SIP | Planned provider and integration path. Vobiz will connect into the real-time call stack through SIP. |
 | Real-Time Voice Session | LiveKit | Use as the real-time media/session layer between telephony and the AI voice worker. |
 | STT | Deepgram Flux | Selected for v1 because it is better aligned with conversational voice-agent use cases. |
-| LLM | Groq `llama-3.3-70b-versatile` | Selected for v1. No further model validation is required for now. |
+| LLM | Groq `openai/gpt-oss-20b` | Selected for v1. No further model validation is required for now. |
 | TTS | Sarvam AI Bulbul v3 | Validate voice quality, streaming latency, Hindi/English pronunciation, Hinglish handling, and telephony audio quality. |
 | RAG Storage | Postgres with pgvector | Use Postgres with pgvector for tenant-scoped retrieval. Detailed schema will be finalized later. |
 | RAG Orchestration | Simple retrieval layer first | Chunk tenant Q&A and additional knowledge, retrieve relevant context per turn, defer LangGraph unless workflow complexity demands it. |
@@ -201,7 +201,7 @@ Detailed schemas will be defined in the detailed architecture phase.
    Use Deepgram Flux.
 
 3. LLM model.
-   Use Groq `llama-3.3-70b-versatile` for now. No additional model validation is required before architecture proceeds.
+   Use Groq `openai/gpt-oss-20b` for now. No additional model validation is required before architecture proceeds.
 
 4. Retrieval storage.
    Use Postgres with pgvector. Detailed schema will be finalized later in the architecture plan.

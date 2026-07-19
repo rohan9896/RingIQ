@@ -61,7 +61,7 @@ flowchart TD
     LiveKit --> Voice[Voice AI Worker]
 
     Voice --> Deepgram[Deepgram Flux STT]
-    Voice --> Groq[Groq llama-3.3-70b-versatile]
+    Voice --> Groq[Groq openai/gpt-oss-20b]
     Voice --> Sarvam[Sarvam AI TTS]
     Voice --> DB
     Voice --> Store
@@ -172,7 +172,7 @@ The Voice AI Worker is the real-time call runtime. It is deliberately isolated f
 - Receiving and sending real-time audio.
 - Coordinating Deepgram Flux STT.
 - Fetching relevant tenant knowledge through the retrieval layer.
-- Calling Groq `llama-3.3-70b-versatile`.
+- Calling Groq `openai/gpt-oss-20b`.
 - Coordinating Sarvam AI TTS.
 - Managing per-call conversation state.
 - Applying the AI call flow and system prompt.
@@ -323,7 +323,7 @@ Tenant Web App
               -> LiveKit
                   -> Voice AI Worker
                       -> Deepgram Flux
-                      -> Groq llama-3.3-70b-versatile
+                      -> Groq openai/gpt-oss-20b
                       -> Sarvam AI
 ```
 
