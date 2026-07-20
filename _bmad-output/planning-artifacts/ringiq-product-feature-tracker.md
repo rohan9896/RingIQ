@@ -1,6 +1,6 @@
 # RingIQ Product Feature Tracker
 
-**Last updated:** 2026-07-19  
+**Last updated:** 2026-07-20\
 **Product scope:** Real-estate-first Voice AI lead qualification SaaS  
 **Delivery state:** Local implementation and verification; not a deployment checklist
 
@@ -21,11 +21,11 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 | Identity and access | `[-]` | Clerk custom sign-in/sign-up UI, tenant and platform identity realms, role-aware backend contexts | Tenant user and organization lifecycle administration |
 | Category templates | `[x]` | Platform category and starter KB template CRUD, questions, draft editing, publication, and real-estate draft seed action | Seeded initial templates for production deployment |
 | Tenant knowledge base | `[x]` | Tenant can select a published starter template, create a draft, answer/edit questions, and publish it | Retrieval indexing and use during production calls |
-| Lead imports | `[x]` | Tenant CSV import, validation, lead management, campaign selection, and lead campaign/call history | AI qualification outcomes |
+| Lead imports | `[x]` | Tenant CSV import, validation, lead management, campaign selection, and lead campaign/call history | Follow-up queue and filters are tracked separately |
 | Voice AI demo | `[x]` | Outbound SIP demo call with LiveKit, Deepgram, Groq, Sarvam, and pipeline/latency logs | Tenant-grounded production calling workflow |
 | Campaigns and call operations | `[x]` | Campaign lifecycle, readiness, durable jobs, outbound call initiation, retries, controls, and monitoring | Tenant-grounded AI conversation behavior is tracked separately |
-| Qualification outcomes | `[ ]` | Designed in PRD/LLD | Classification, callback capture, follow-up queue |
-| Conversation audit | `[ ]` | Designed in PRD/LLD | Persisted call attempts, recordings, transcripts, summaries |
+| Qualification outcomes | `[-]` | Persisted classification, facts, callback intent, grounded rationale/evidence, summaries, and Calls/Lead Detail views | Classification-driven follow-up queue and filters |
+| Conversation audit | `[-]` | Persisted tenant-scoped attempts, terminal reasons, recordings, transcripts, summaries, outcomes, and tenant call activity views | Retention verification |
 | Tenant dashboard | `[-]` | Live readiness, lead/call metrics, and recent operational call activity | Qualification metrics, filters, and richer call detail views |
 | Knowledge improvement loop | `[ ]` | Designed in PRD/LLD | Gap detection, review, and improvement workflow |
 
@@ -59,7 +59,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Platform dashboard shows live aggregate organization, user, category, and template counts.
 - [x] Platform users can seed the first real-estate category and starter KB draft from the dashboard.
 - [ ] Seed the first production real-estate category and starter template as part of deployment.
-- [ ] Archive/deactivate workflow for categories and template versions, including tenant-facing behavior.
+- [-] Category deactivation is available; template-version archival controls and complete tenant-facing lifecycle behavior remain planned.
 
 ## 3. Tenant Knowledge-Base Setup
 
@@ -70,10 +70,10 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Required KB questions block publication until answered.
 - [x] A published KB becomes the tenant's active version for later calls.
 - [x] Tenant knowledge-base UI is available.
-- [ ] Call-readiness rules that combine business-profile and active-KB requirements.
+- [x] Call-readiness rules that combine business-profile and active-KB requirements.
 - [ ] Compile published KB content into tenant-scoped retrieval chunks and embeddings.
 - [ ] Retrieve relevant active-KB knowledge during production calls.
-- [ ] Knowledge-base history, archival, and rollback UX.
+- [-] KB versions are retained and the replaced active version is archived on publication; history and rollback UX remain planned.
 
 ## 4. Lead Import And Lead Workspace
 
@@ -91,7 +91,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Lead detail page with contact details, optional attributes, archive state, and manual follow-up status.
 - [x] Manual single-lead creation without requiring CSV import.
 - [x] Add campaign enrollment and call-attempt history to lead detail.
-- [ ] Add AI outcome context to lead detail when classification is implemented.
+- [x] Add AI outcome context to lead detail when classification is implemented.
 
 ## 5. Campaign Creation And Call Operations
 
@@ -117,28 +117,27 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Generate tenant-specific voice instructions from the published business profile and active KB.
 - [x] Load the pinned tenant-scoped KB context for each production call.
 - [x] Pass lead name and optional lead attributes into the call context.
-- [ ] Capture structured qualification facts: area, budget, property type, intent, and timeline.
-- [ ] Capture a requested callback date/time.
-- [ ] Enforce a production call-end policy and terminal outcomes.
+- [x] Capture structured qualification facts: area, budget, property type, intent, and timeline.
+- [x] Capture a requested callback date/time, preserving ambiguous phrases without inventing a timestamp.
+- [x] Production calls capture bounded terminal reasons for qualification completion, inactivity, participant disconnect, duration limits, unanswered joins, and outbound-start failures.
 - [x] Preserve tenant, campaign, lead, and call-attempt identifiers through LiveKit dispatch and result callbacks.
 
 ## 7. Lead Classification And Sales Follow-Up
 
-- [ ] Derive and store one V1 outcome: hot, warm, cold, callback requested, not interested, unanswered, invalid number, or needs review.
-- [ ] Store a human-readable reason and structured evidence for the outcome.
+- [x] Derive and store one V1 outcome: hot, warm, cold, callback requested, not interested, unanswered, invalid number, or needs review.
+- [x] Store a human-readable reason and structured transcript evidence for the outcome.
 - [ ] Create the tenant follow-up queue for hot, warm, and callback-requested leads.
 - [ ] Filter and sort the queue by campaign, batch, call status, outcome, and callback time.
-- [ ] Show lead and call evidence before a sales user follows up.
-- [ ] No automated live transfer in V1.
+- [x] Show lead and call evidence before a sales user follows up.
 
 ## 8. Conversation Records And Audit Trail
 
-- [ ] Create a persisted record for every call attempt, including unanswered and provider failures.
-- [ ] Store provider call identifiers, timestamps, duration, and terminal reason.
-- [ ] Store recordings for connected calls in tenant-isolated object storage.
-- [ ] Store transcripts and conversation summaries where available.
-- [ ] Restrict lead data, recordings, transcripts, and private KB content to the owning tenant.
-- [ ] Expose tenant call history and call-detail views.
+- [x] Create a persisted record for every call attempt, including unanswered and provider failures.
+- [-] Provider call identifiers, timestamps, duration, failure codes, failure details, and core voice-worker terminal reasons are stored; a complete provider-specific terminal taxonomy remains planned.
+- [x] Store recordings for connected calls in tenant-isolated object storage.
+- [x] Transcripts are stored and displayed; grounded conversation summaries are generated asynchronously and remain visible alongside evidence.
+- [x] Restrict lead data, recordings, transcripts, and private KB content to the owning tenant.
+- [x] Expose tenant call history and call-detail views.
 - [ ] Retain call artifacts indefinitely until a later retention policy is adopted.
 
 ## 9. Tenant Dashboard And Knowledge Improvement
@@ -147,7 +146,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [x] Organization first-call readiness with guided category, KB, and lead actions.
 - [x] Recent operational call activity with lead, status, time, duration, and failure context.
 - [ ] Tenant filters for campaigns, lead imports, outcomes, and date ranges.
-- [ ] Lead detail view with qualification data, follow-up status, and call history.
+- [x] Lead detail includes manual follow-up status, campaign/call history, qualification outcomes, facts, callbacks, reasons, and evidence.
 - [ ] Identify unanswered or insufficiently-grounded questions as tenant-scoped knowledge gaps.
 - [ ] Knowledge-gap list links to the related lead, campaign, call, and KB topic.
 - [ ] Let a tenant improve its KB from the gap context; the next call after publication uses the updated KB.
@@ -161,7 +160,7 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 - [ ] Platform organization-user list and support metadata.
 - [ ] Platform-user administration for the three platform roles.
 - [ ] Platform audit trail for administrative actions.
-- [ ] Operational reporting that exposes only safe aggregate tenant metadata, never private tenant content.
+- [x] Operational reporting exposes only safe aggregate tenant metadata, never private tenant content.
 
 ## Deferred From MVP
 
@@ -174,13 +173,10 @@ This is the canonical implementation tracker. The PRD remains the source of trut
 
 ## Recommended Next Build Sequence
 
-1. Campaign creation, readiness checks, and PostgreSQL-backed campaign/enrollment/attempt records.
-2. Background job processing for the initial call and three unanswered retries.
-3. Tenant-grounded production voice calls that consume persisted campaign, lead, and active-KB data.
-4. Persist call outcomes, recordings, transcripts, summaries, and structured qualification facts.
-5. Classification and follow-up queue.
-6. Campaign dashboard and lead detail views.
-7. Knowledge-gap improvement loop and the remaining platform administration capabilities.
+1. Build the classification-driven follow-up queue and filters.
+2. Add qualification metrics and outcome filters to the dashboard.
+3. Build the knowledge-gap improvement loop.
+4. Complete tenant identity administration, platform organization/user administration, and audit trails.
 
 ## Verification Standard For Future Checks
 

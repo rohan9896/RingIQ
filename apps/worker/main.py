@@ -9,7 +9,7 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from apps.api.ringiq_api.config import get_voice_settings
+from apps.api.ringiq_api.config import get_app_settings, get_voice_settings
 from apps.api.ringiq_api.db.session import get_session_factory
 from apps.api.ringiq_api.models.campaigns import (
     CallAttempt,
@@ -26,9 +26,16 @@ from apps.api.ringiq_api.models.identity import Tenant
 from apps.api.ringiq_api.models.knowledge import TenantKnowledgeBaseVersion
 from apps.api.ringiq_api.services.campaign_operations import (
     apply_attempt_result,
-    claim_call_job,
+    POST_CALL_JOB_TYPE,
+    claim_job,
     load_campaign,
     utcnow,
+)
+from apps.api.ringiq_api.services.post_call_outcomes import (
+    PostCallOutcomeError,
+    extractor_from_settings,
+    get_or_create_outcome,
+    process_post_call_outcome,
 )
 from apps.api.ringiq_api.services.livekit_calls import (
     LiveKitCallService,
@@ -36,18 +43,92 @@ from apps.api.ringiq_api.services.livekit_calls import (
 )
 
 logger = logging.getLogger("ringiq.background_worker")
+JOB_LEASE_SECONDS = 180
 
 
 async def process_next_call_job(worker_id: str) -> bool:
     session_factory = get_session_factory()
     async with session_factory() as session:
-        job = await claim_call_job(session, worker_id=worker_id)
+        job = await claim_job(
+            session,
+            worker_id=worker_id,
+            lease_seconds=JOB_LEASE_SECONDS,
+        )
     if job is None:
         return False
 
     async with session_factory() as session:
         job = await session.get(Job, job.id)
         if job is None:
+            return True
+        if job.job_type == POST_CALL_JOB_TYPE:
+            attempt_id_value = job.payload_json.get("call_attempt_id")
+            try:
+                attempt_id = uuid.UUID(str(attempt_id_value))
+            except (TypeError, ValueError):
+                job.status = JobStatus.DEAD_LETTER.value
+                job.last_error = "invalid_call_attempt_id"
+                await session.commit()
+                return True
+            attempt = (
+                await session.execute(
+                    select(CallAttempt).where(
+                        CallAttempt.id == attempt_id,
+                        CallAttempt.tenant_id == job.tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            tenant = await session.get(Tenant, job.tenant_id)
+            if attempt is None or tenant is None:
+                job.status = JobStatus.DEAD_LETTER.value
+                job.last_error = "call_attempt_or_tenant_not_found"
+                await session.commit()
+                return True
+            settings = get_app_settings()
+            try:
+                extractor = (
+                    extractor_from_settings(settings)
+                    if attempt.status == CallAttemptStatus.COMPLETED.value
+                    else None
+                )
+                await process_post_call_outcome(
+                    session,
+                    attempt,
+                    tenant_timezone=tenant.timezone,
+                    extractor=extractor,
+                    confidence_threshold=settings.post_call_outcome_confidence_threshold,
+                )
+                job.status = JobStatus.COMPLETED.value
+                job.completed_at = utcnow()
+                job.last_error = None
+                job.lease_owner = None
+                job.lease_expires_at = None
+            except Exception as exc:
+                error_code = (
+                    str(exc)
+                    if isinstance(exc, PostCallOutcomeError)
+                    else "outcome_processing_failed"
+                )
+                logger.warning(
+                    "post_call_outcome.failed attempt_id=%s error_code=%s",
+                    attempt.id,
+                    error_code,
+                )
+                outcome = await get_or_create_outcome(session, attempt)
+                outcome.processing_error = error_code[:500]
+                job.last_error = error_code[:2000]
+                job.lease_owner = None
+                job.lease_expires_at = None
+                if job.attempt_count >= job.max_attempts:
+                    outcome.processing_status = "failed"
+                    job.status = JobStatus.DEAD_LETTER.value
+                else:
+                    outcome.processing_status = "pending"
+                    job.status = JobStatus.PENDING.value
+                    job.available_at = utcnow() + timedelta(
+                        seconds=min(300, 15 * (2 ** max(0, job.attempt_count - 1)))
+                    )
+            await session.commit()
             return True
         enrollment = (
             await session.execute(
@@ -191,6 +272,7 @@ async def process_next_call_job(worker_id: str) -> bool:
                 result_status=CallAttemptStatus.FAILED.value,
                 failure_code="outbound_call_start_failed",
                 failure_detail=str(exc),
+                terminal_reason="outbound_call_start_failed",
             )
             job.status = JobStatus.DEAD_LETTER.value
             job.last_error = str(exc)

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,8 +21,13 @@ from apps.api.ringiq_api.models.knowledge import (
     TenantKnowledgeBase,
     TenantKnowledgeBaseVersion,
 )
+from apps.api.ringiq_api.services.post_call_outcomes import (
+    get_or_create_outcome,
+    mark_outcome_failed,
+)
 
 CALL_JOB_TYPE = "campaign.outbound_call"
+POST_CALL_JOB_TYPE = "call.post_call_outcome"
 TERMINAL_ENROLLMENT_STATUSES = {
     EnrollmentStatus.COMPLETED.value,
     EnrollmentStatus.INVALID_NUMBER.value,
@@ -48,7 +54,7 @@ async def load_campaign(
         .options(
             selectinload(Campaign.enrollments).selectinload(
                 CampaignEnrollment.attempts
-            )
+            ).selectinload(CallAttempt.outcome)
         )
         .where(Campaign.id == campaign_id, Campaign.tenant_id == tenant_id)
     )
@@ -118,6 +124,72 @@ def enqueue_call_job(
     return job
 
 
+async def enqueue_post_call_outcome_if_ready(
+    session: AsyncSession,
+    attempt: CallAttempt,
+    *,
+    enrollment: CampaignEnrollment | None = None,
+) -> Job | None:
+    terminal_statuses = {
+        CallAttemptStatus.COMPLETED.value,
+        CallAttemptStatus.UNANSWERED.value,
+        CallAttemptStatus.BUSY.value,
+        CallAttemptStatus.INVALID_NUMBER.value,
+        CallAttemptStatus.FAILED.value,
+        CallAttemptStatus.CANCELLED.value,
+    }
+    if attempt.status not in terminal_statuses:
+        return None
+    if enrollment is None:
+        enrollment = (
+            await session.execute(
+                select(CampaignEnrollment).where(
+                    CampaignEnrollment.id == attempt.campaign_enrollment_id,
+                    CampaignEnrollment.tenant_id == attempt.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+    if enrollment is None:
+        return None
+    outcome = await get_or_create_outcome(session, attempt)
+    if outcome.processing_status == "completed":
+        return None
+    if (
+        attempt.status == CallAttemptStatus.COMPLETED.value
+        and attempt.artifacts_finalized_at is None
+    ):
+        return None
+
+    idempotency_key = str(attempt.id)
+    job_id = uuid.uuid4()
+    await session.execute(
+        pg_insert(Job)
+        .values(
+            id=job_id,
+            tenant_id=attempt.tenant_id,
+            campaign_id=enrollment.campaign_id,
+            campaign_enrollment_id=enrollment.id,
+            job_type=POST_CALL_JOB_TYPE,
+            status=JobStatus.PENDING.value,
+            payload_json={"call_attempt_id": str(attempt.id)},
+            idempotency_key=idempotency_key,
+            available_at=utcnow(),
+            priority=10,
+            attempt_count=0,
+            max_attempts=3,
+        )
+        .on_conflict_do_nothing(index_elements=["job_type", "idempotency_key"])
+    )
+    return (
+        await session.execute(
+            select(Job).where(
+                Job.job_type == POST_CALL_JOB_TYPE,
+                Job.idempotency_key == idempotency_key,
+            )
+        )
+    ).scalar_one()
+
+
 def add_outbox_event(
     session: AsyncSession,
     campaign: Campaign,
@@ -159,6 +231,7 @@ async def cancel_pending_jobs(
 ) -> None:
     statement = update(Job).where(
         Job.campaign_id == campaign_id,
+        Job.job_type == CALL_JOB_TYPE,
         Job.status == JobStatus.PENDING.value,
     )
     if enrollment_id is not None:
@@ -195,6 +268,7 @@ async def apply_attempt_result(
     duration_seconds: int | None = None,
     failure_code: str | None = None,
     failure_detail: str | None = None,
+    terminal_reason: str | None = None,
 ) -> None:
     now = utcnow()
     attempt.status = result_status
@@ -202,6 +276,7 @@ async def apply_attempt_result(
     attempt.duration_seconds = duration_seconds
     attempt.failure_code = failure_code
     attempt.failure_detail = failure_detail
+    attempt.terminal_reason = terminal_reason or attempt.terminal_reason
     enrollment.last_error_code = failure_code
 
     if result_status == CallAttemptStatus.CONNECTED.value:
@@ -235,6 +310,11 @@ async def apply_attempt_result(
         enrollment.status = EnrollmentStatus.EXHAUSTED.value
         enrollment.next_attempt_at = None
 
+    await enqueue_post_call_outcome_if_ready(
+        session,
+        attempt,
+        enrollment=enrollment,
+    )
     await complete_campaign_if_terminal(session, campaign)
 
 
@@ -264,7 +344,47 @@ async def claim_call_job(
     worker_id: str,
     lease_seconds: int = 60,
 ) -> Job | None:
+    return await claim_job(
+        session,
+        worker_id=worker_id,
+        lease_seconds=lease_seconds,
+        job_types=(CALL_JOB_TYPE,),
+    )
+
+
+async def claim_job(
+    session: AsyncSession,
+    *,
+    worker_id: str,
+    lease_seconds: int = 60,
+    job_types: tuple[str, ...] = (CALL_JOB_TYPE, POST_CALL_JOB_TYPE),
+) -> Job | None:
     now = utcnow()
+    exhausted_post_call_jobs = list(
+        (
+            await session.execute(
+                select(Job).where(
+                    Job.job_type == POST_CALL_JOB_TYPE,
+                    Job.status == JobStatus.LEASED.value,
+                    Job.lease_expires_at < now,
+                    Job.attempt_count >= Job.max_attempts,
+                )
+            )
+        ).scalars()
+    )
+    for exhausted_job in exhausted_post_call_jobs:
+        try:
+            attempt_id = uuid.UUID(
+                str(exhausted_job.payload_json.get("call_attempt_id"))
+            )
+        except (AttributeError, TypeError, ValueError):
+            continue
+        await mark_outcome_failed(
+            session,
+            attempt_id=attempt_id,
+            tenant_id=exhausted_job.tenant_id,
+            error_code="job_lease_exhausted",
+        )
     await session.execute(
         update(Job)
         .where(
@@ -295,7 +415,7 @@ async def claim_call_job(
     statement = (
         select(Job)
         .where(
-            Job.job_type == CALL_JOB_TYPE,
+            Job.job_type.in_(job_types),
             Job.status == JobStatus.PENDING.value,
             Job.available_at <= now,
             Job.attempt_count < Job.max_attempts,
@@ -306,6 +426,7 @@ async def claim_call_job(
     )
     job = (await session.execute(statement)).scalar_one_or_none()
     if job is None:
+        await session.commit()
         return None
     job.status = JobStatus.LEASED.value
     job.lease_owner = worker_id

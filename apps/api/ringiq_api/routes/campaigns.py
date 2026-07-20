@@ -13,6 +13,7 @@ from apps.api.ringiq_api.db.session import get_db_session
 from apps.api.ringiq_api.models.campaigns import (
     CallAttempt,
     CallAttemptStatus,
+    CallOutcome,
     Campaign,
     CampaignEnrollment,
     CampaignStatus,
@@ -27,6 +28,7 @@ from apps.api.ringiq_api.schemas.campaigns import (
     CallArtifactsUpdateRequest,
     CallAttemptResponse,
     CallAttemptResultRequest,
+    CallOutcomeResponse,
     CampaignCreateRequest,
     CampaignDetailResponse,
     CampaignEnrollmentResponse,
@@ -35,6 +37,8 @@ from apps.api.ringiq_api.schemas.campaigns import (
     CampaignProgressResponse,
     CampaignReadinessResponse,
     CampaignResponse,
+    OutcomeEvidenceResponse,
+    QualificationFactsResponse,
 )
 from apps.api.ringiq_api.services.campaign_operations import (
     add_outbox_event,
@@ -42,6 +46,7 @@ from apps.api.ringiq_api.services.campaign_operations import (
     campaign_counts,
     campaign_readiness,
     cancel_pending_jobs,
+    enqueue_post_call_outcome_if_ready,
     load_campaign,
     queue_campaign,
     utcnow,
@@ -49,6 +54,67 @@ from apps.api.ringiq_api.services.campaign_operations import (
 from apps.api.ringiq_api.services.recording_storage import presigned_recording_url
 
 router = APIRouter(prefix="/v1", tags=["campaigns"])
+
+
+def _outcome_response(outcome: CallOutcome | None) -> CallOutcomeResponse | None:
+    if outcome is None:
+        return None
+    return CallOutcomeResponse(
+        id=outcome.id,
+        processing_status=outcome.processing_status,
+        processing_error=outcome.processing_error,
+        processed_at=outcome.processed_at,
+        label=outcome.label,
+        confidence=outcome.confidence,
+        rationale=outcome.rationale,
+        summary=outcome.summary,
+        qualification_facts=QualificationFactsResponse.model_validate(
+            outcome.qualification_facts_json or {}
+        ),
+        evidence=[
+            OutcomeEvidenceResponse.model_validate(item)
+            for item in outcome.evidence_json or []
+        ],
+        callback_original_phrase=outcome.callback_original_phrase,
+        callback_timezone=outcome.callback_timezone,
+        callback_at=outcome.callback_at,
+        terminal_reason=outcome.terminal_reason,
+    )
+
+
+def _attempt_response(attempt: CallAttempt) -> CallAttemptResponse:
+    return CallAttemptResponse(
+        id=attempt.id,
+        attempt_number=attempt.attempt_number,
+        status=attempt.status,
+        scheduled_at=attempt.scheduled_at,
+        started_at=attempt.started_at,
+        answered_at=attempt.answered_at,
+        ended_at=attempt.ended_at,
+        duration_seconds=attempt.duration_seconds,
+        provider=attempt.provider,
+        provider_call_id=attempt.provider_call_id,
+        livekit_room_name=attempt.livekit_room_name,
+        failure_code=attempt.failure_code,
+        failure_detail=attempt.failure_detail,
+        terminal_reason=attempt.terminal_reason,
+        artifacts_finalized_at=attempt.artifacts_finalized_at,
+        outcome=_outcome_response(attempt.outcome),
+    )
+
+
+async def _locked_attempt(
+    session: AsyncSession,
+    attempt_id: uuid.UUID,
+    *,
+    tenant_id: uuid.UUID | None = None,
+) -> CallAttempt | None:
+    statement = select(CallAttempt).where(CallAttempt.id == attempt_id)
+    if tenant_id is not None:
+        statement = statement.where(CallAttempt.tenant_id == tenant_id)
+    return (
+        await session.execute(statement.with_for_update())
+    ).scalar_one_or_none()
 
 
 @router.get("/calls", response_model=list[CallActivityResponse])
@@ -60,6 +126,7 @@ async def list_calls(
     rows = (
         await session.execute(
             select(CallAttempt, CampaignEnrollment, Campaign, Lead)
+            .options(selectinload(CallAttempt.outcome))
             .join(
                 CampaignEnrollment,
                 CampaignEnrollment.id == CallAttempt.campaign_enrollment_id,
@@ -92,6 +159,8 @@ async def list_calls(
                 attempt.recording_url,
                 settings,
             ),
+            terminal_reason=attempt.terminal_reason,
+            outcome=_outcome_response(attempt.outcome),
         )
         for attempt, _, campaign, lead in rows
     ]
@@ -117,6 +186,24 @@ async def _require_campaign(
     if campaign is None:
         raise HTTPException(status_code=404, detail="campaign_not_found")
     return campaign
+
+
+async def _backfill_terminal_result(
+    session: AsyncSession,
+    attempt: CallAttempt,
+    payload: CallAttemptResultRequest,
+) -> None:
+    if attempt.provider_call_id is None and payload.provider_call_id is not None:
+        attempt.provider_call_id = payload.provider_call_id
+    if attempt.duration_seconds is None and payload.duration_seconds is not None:
+        attempt.duration_seconds = payload.duration_seconds
+    if attempt.failure_code is None and payload.failure_code is not None:
+        attempt.failure_code = payload.failure_code
+    if attempt.failure_detail is None and payload.failure_detail is not None:
+        attempt.failure_detail = payload.failure_detail
+    if attempt.terminal_reason is None and payload.terminal_reason is not None:
+        attempt.terminal_reason = payload.terminal_reason
+    await enqueue_post_call_outcome_if_ready(session, attempt)
 
 
 async def _campaign_response(
@@ -190,7 +277,7 @@ async def _campaign_detail_response(
                 attempt_count=enrollment.attempt_count,
                 next_attempt_at=enrollment.next_attempt_at,
                 last_error_code=enrollment.last_error_code,
-                attempts=[CallAttemptResponse.model_validate(item) for item in enrollment.attempts],
+                attempts=[_attempt_response(item) for item in enrollment.attempts],
             )
         )
     return CampaignDetailResponse(**base.model_dump(), enrollments=enrollments)
@@ -438,14 +525,11 @@ async def record_call_attempt_result(
     context: TenantContext = Depends(get_current_tenant_context),
     session: AsyncSession = Depends(get_db_session),
 ) -> CampaignDetailResponse:
-    attempt = (
-        await session.execute(
-            select(CallAttempt).where(
-                CallAttempt.id == attempt_id,
-                CallAttempt.tenant_id == context.tenant_id,
-            )
-        )
-    ).scalar_one_or_none()
+    attempt = await _locked_attempt(
+        session,
+        attempt_id,
+        tenant_id=context.tenant_id,
+    )
     if attempt is None:
         raise HTTPException(status_code=404, detail="call_attempt_not_found")
     terminal_statuses = {
@@ -458,6 +542,8 @@ async def record_call_attempt_result(
     }
     if attempt.status in terminal_statuses:
         if attempt.status == payload.status:
+            await _backfill_terminal_result(session, attempt, payload)
+            await _commit(session, "call_attempt_result_conflict")
             enrollment = (
                 await session.execute(
                     select(CampaignEnrollment).where(
@@ -492,6 +578,7 @@ async def record_call_attempt_result(
         duration_seconds=payload.duration_seconds,
         failure_code=payload.failure_code,
         failure_detail=payload.failure_detail,
+        terminal_reason=payload.terminal_reason,
     )
     await _commit(session, "call_attempt_result_conflict")
     return await _campaign_detail_response(
@@ -521,7 +608,9 @@ async def get_lead_campaign_history(
                 select(CampaignEnrollment)
                 .options(
                     selectinload(CampaignEnrollment.campaign),
-                    selectinload(CampaignEnrollment.attempts),
+                    selectinload(CampaignEnrollment.attempts).selectinload(
+                        CallAttempt.outcome
+                    ),
                 )
                 .where(
                     CampaignEnrollment.lead_id == lead_id,
@@ -539,7 +628,7 @@ async def get_lead_campaign_history(
             enrollment_id=item.id,
             enrollment_status=item.status,
             attempt_count=item.attempt_count,
-            attempts=[CallAttemptResponse.model_validate(attempt) for attempt in item.attempts],
+            attempts=[_attempt_response(attempt) for attempt in item.attempts],
         )
         for item in enrollments
     ]
@@ -559,7 +648,7 @@ async def record_internal_call_attempt_result(
         or not secrets.compare_digest(internal_key, settings.internal_api_key)
     ):
         raise HTTPException(status_code=401, detail="invalid_internal_api_key")
-    attempt = await session.get(CallAttempt, attempt_id)
+    attempt = await _locked_attempt(session, attempt_id)
     if attempt is None:
         raise HTTPException(status_code=404, detail="call_attempt_not_found")
     enrollment = await session.get(CampaignEnrollment, attempt.campaign_enrollment_id)
@@ -576,6 +665,8 @@ async def record_internal_call_attempt_result(
     }
     if attempt.status in terminal_statuses:
         if attempt.status == payload.status:
+            await _backfill_terminal_result(session, attempt, payload)
+            await _commit(session, "call_attempt_result_conflict")
             return {"status": "already_applied"}
         raise HTTPException(status_code=409, detail="call_attempt_already_terminal")
     if attempt.status == CallAttemptStatus.CONNECTED.value and payload.status != "completed":
@@ -590,6 +681,7 @@ async def record_internal_call_attempt_result(
         duration_seconds=payload.duration_seconds,
         failure_code=payload.failure_code,
         failure_detail=payload.failure_detail,
+        terminal_reason=payload.terminal_reason,
     )
     await _commit(session, "call_attempt_result_conflict")
     return {"status": "applied"}
@@ -609,13 +701,21 @@ async def record_internal_call_artifacts(
         or not secrets.compare_digest(internal_key, settings.internal_api_key)
     ):
         raise HTTPException(status_code=401, detail="invalid_internal_api_key")
-    attempt = await session.get(CallAttempt, attempt_id)
+    attempt = await _locked_attempt(session, attempt_id)
     if attempt is None:
         raise HTTPException(status_code=404, detail="call_attempt_not_found")
 
     supplied_fields = payload.model_fields_set
     if "transcript" in supplied_fields:
-        attempt.transcript_json = [turn.model_dump() for turn in payload.transcript or []]
+        if payload.transcript is None:
+            raise HTTPException(status_code=422, detail="finalized_transcript_cannot_be_null")
+        transcript = [turn.model_dump() for turn in payload.transcript]
+        if attempt.artifacts_finalized_at is not None:
+            if transcript != attempt.transcript_json:
+                raise HTTPException(status_code=409, detail="call_transcript_already_finalized")
+        else:
+            attempt.transcript_json = transcript
+            attempt.artifacts_finalized_at = utcnow()
     for field_name in (
         "recording_egress_id",
         "recording_status",
@@ -624,6 +724,8 @@ async def record_internal_call_artifacts(
     ):
         if field_name in supplied_fields:
             setattr(attempt, field_name, getattr(payload, field_name))
+
+    await enqueue_post_call_outcome_if_ready(session, attempt)
 
     await _commit(session, "call_artifacts_store_conflict")
     return {"status": "stored"}

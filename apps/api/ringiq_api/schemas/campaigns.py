@@ -45,6 +45,46 @@ class CampaignProgressResponse(BaseModel):
     cancelled: int = 0
 
 
+class QualificationFactsResponse(BaseModel):
+    area: str | None = None
+    budget: str | None = None
+    property_type: str | None = None
+    intent: str | None = None
+    timeline: str | None = None
+
+
+class OutcomeEvidenceResponse(BaseModel):
+    turn_index: int
+    speaker: Literal["user", "assistant"]
+    quote: str
+
+
+class CallOutcomeResponse(BaseModel):
+    id: uuid.UUID
+    processing_status: Literal["pending", "processing", "completed", "failed"]
+    processing_error: str | None
+    processed_at: datetime | None
+    label: Literal[
+        "hot",
+        "warm",
+        "cold",
+        "callback_requested",
+        "not_interested",
+        "unanswered",
+        "invalid_number",
+        "needs_review",
+    ] | None
+    confidence: float | None
+    rationale: str | None
+    summary: str | None
+    qualification_facts: QualificationFactsResponse
+    evidence: list[OutcomeEvidenceResponse]
+    callback_original_phrase: str | None
+    callback_timezone: str | None
+    callback_at: datetime | None
+    terminal_reason: str | None
+
+
 class CallAttemptResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,6 +101,9 @@ class CallAttemptResponse(BaseModel):
     livekit_room_name: str | None
     failure_code: str | None
     failure_detail: str | None
+    terminal_reason: str | None
+    artifacts_finalized_at: datetime | None
+    outcome: CallOutcomeResponse | None = None
 
 
 class CampaignEnrollmentResponse(BaseModel):
@@ -110,6 +153,7 @@ class CallAttemptResultRequest(BaseModel):
     duration_seconds: int | None = Field(default=None, ge=0)
     failure_code: str | None = Field(default=None, max_length=100)
     failure_detail: str | None = Field(default=None, max_length=2000)
+    terminal_reason: str | None = Field(default=None, max_length=100)
 
 
 class TranscriptTurn(BaseModel):
@@ -142,6 +186,8 @@ class CallActivityResponse(BaseModel):
     transcript: list[TranscriptTurn]
     recording_status: str | None
     recording_url: str | None
+    terminal_reason: str | None
+    outcome: CallOutcomeResponse | None
 
 
 class CampaignLeadHistoryResponse(BaseModel):

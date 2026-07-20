@@ -53,6 +53,24 @@ class AppSettings(BaseSettings):
         ge=60,
         le=3600,
     )
+    post_call_outcome_api_key: str | None = Field(
+        default=None, alias="POST_CALL_OUTCOME_API_KEY"
+    )
+    post_call_outcome_base_url: str = Field(
+        default="https://api.groq.com/openai/v1", alias="POST_CALL_OUTCOME_BASE_URL"
+    )
+    post_call_outcome_model: str = Field(
+        default="openai/gpt-oss-20b", alias="POST_CALL_OUTCOME_MODEL"
+    )
+    post_call_outcome_timeout_seconds: float = Field(
+        default=30.0, alias="POST_CALL_OUTCOME_TIMEOUT_SECONDS", gt=0, le=120
+    )
+    post_call_outcome_confidence_threshold: float = Field(
+        default=0.6,
+        alias="POST_CALL_OUTCOME_CONFIDENCE_THRESHOLD",
+        ge=0,
+        le=1,
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

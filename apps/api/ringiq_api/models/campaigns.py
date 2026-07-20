@@ -6,7 +6,9 @@ from sqlalchemy import (
     JSON,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -65,6 +67,24 @@ class OutboxStatus(StrEnum):
     PENDING = "pending"
     PUBLISHED = "published"
     FAILED = "failed"
+
+
+class CallOutcomeStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class CallOutcomeLabel(StrEnum):
+    HOT = "hot"
+    WARM = "warm"
+    COLD = "cold"
+    CALLBACK_REQUESTED = "callback_requested"
+    NOT_INTERESTED = "not_interested"
+    UNANSWERED = "unanswered"
+    INVALID_NUMBER = "invalid_number"
+    NEEDS_REVIEW = "needs_review"
 
 
 class Campaign(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -152,6 +172,7 @@ class CallAttempt(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "call_attempts"
     __table_args__ = (
         UniqueConstraint("campaign_enrollment_id", "attempt_number"),
+        UniqueConstraint("tenant_id", "id", name="uq_call_attempts_tenant_id"),
         CheckConstraint(
             "status IN ('queued', 'dialing', 'ringing', 'connected', 'completed', "
             "'unanswered', 'busy', 'invalid_number', 'failed', 'cancelled')",
@@ -195,10 +216,85 @@ class CallAttempt(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     recording_url: Mapped[str | None] = mapped_column(String(2000))
     failure_code: Mapped[str | None] = mapped_column(String(100))
     failure_detail: Mapped[str | None] = mapped_column(String(2000))
+    terminal_reason: Mapped[str | None] = mapped_column(String(100))
+    artifacts_finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     enrollment: Mapped[CampaignEnrollment] = relationship(
         back_populates="attempts", foreign_keys=[campaign_enrollment_id]
     )
+    outcome: Mapped["CallOutcome | None"] = relationship(
+        back_populates="attempt", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class CallOutcome(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "call_outcomes"
+    __table_args__ = (
+        UniqueConstraint("call_attempt_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "call_attempt_id"],
+            ["call_attempts.tenant_id", "call_attempts.id"],
+            ondelete="CASCADE",
+            name="fk_call_outcomes_tenant_attempt",
+        ),
+        CheckConstraint(
+            "processing_status IN ('pending', 'processing', 'completed', 'failed')",
+            name="processing_status_valid",
+        ),
+        CheckConstraint(
+            "label IS NULL OR label IN ('hot', 'warm', 'cold', 'callback_requested', "
+            "'not_interested', 'unanswered', 'invalid_number', 'needs_review')",
+            name="label_valid",
+        ),
+        CheckConstraint(
+            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
+            name="confidence_valid",
+        ),
+        Index("ix_call_outcomes_tenant_label_created", "tenant_id", "label", "created_at"),
+        Index(
+            "ix_call_outcomes_tenant_processing",
+            "tenant_id",
+            "processing_status",
+            "updated_at",
+        ),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    call_attempt_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False
+    )
+    processing_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=CallOutcomeStatus.PENDING.value,
+        server_default="pending",
+    )
+    processing_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    processing_error: Mapped[str | None] = mapped_column(String(500))
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    label: Mapped[str | None] = mapped_column(String(32))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    rationale: Mapped[str | None] = mapped_column(String(2000))
+    summary: Mapped[str | None] = mapped_column(String(4000))
+    qualification_facts_json: Mapped[dict] = mapped_column(
+        JSON, nullable=False, default=dict, server_default=text("'{}'")
+    )
+    evidence_json: Mapped[list] = mapped_column(
+        JSON, nullable=False, default=list, server_default=text("'[]'")
+    )
+    callback_original_phrase: Mapped[str | None] = mapped_column(String(1000))
+    callback_timezone: Mapped[str | None] = mapped_column(String(100))
+    callback_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    terminal_reason: Mapped[str | None] = mapped_column(String(100))
+    extractor_provider: Mapped[str | None] = mapped_column(String(50))
+    extractor_model: Mapped[str | None] = mapped_column(String(255))
+    extractor_version: Mapped[str | None] = mapped_column(String(50))
+
+    attempt: Mapped[CallAttempt] = relationship(back_populates="outcome")
 
 
 class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):

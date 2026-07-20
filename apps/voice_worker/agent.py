@@ -684,7 +684,12 @@ def prewarm(proc: agents.JobProcess) -> None:
     proc.userdata[PREWARMED_VAD_KEY] = silero.VAD.load()
 
 
-async def _report_call_result(metadata: dict[str, Any], result_status: str) -> None:
+async def _report_call_result(
+    metadata: dict[str, Any],
+    result_status: str,
+    *,
+    terminal_reason: str | None = None,
+) -> None:
     call_attempt_id = metadata.get("call_attempt_id")
     internal_api_key = os.getenv("RINGIQ_INTERNAL_API_KEY")
     if not call_attempt_id or not internal_api_key:
@@ -694,7 +699,14 @@ async def _report_call_result(metadata: dict[str, Any], result_status: str) -> N
         async with aiohttp.ClientSession() as http:
             async with http.post(
                 f"{api_base_url}/v1/internal/call-attempts/{call_attempt_id}/result",
-                json={"status": result_status},
+                json={
+                    "status": result_status,
+                    **(
+                        {"terminal_reason": terminal_reason}
+                        if terminal_reason is not None
+                        else {}
+                    ),
+                },
                 headers={"X-RingIQ-Internal-Key": internal_api_key},
                 timeout=3,
             ) as response:
@@ -956,7 +968,7 @@ async def entrypoint(ctx: JobContext) -> None:
         speaking["agent"] = False
         _mark_activity()
 
-    async def _finalize_call(reason: str) -> None:
+    async def _finalize_call(reason: str, terminal_reason: str) -> None:
         lkapi = api.LiveKitAPI(
             url=os.getenv("LIVEKIT_URL"),
             api_key=os.getenv("LIVEKIT_API_KEY"),
@@ -970,14 +982,21 @@ async def entrypoint(ctx: JobContext) -> None:
         finally:
             await lkapi.aclose()
             await _persist_call_artifacts()
-            await _report_call_result(metadata, "completed")
+            await _report_call_result(
+                metadata,
+                "completed",
+                terminal_reason=terminal_reason,
+            )
             ctx.shutdown(reason=reason)
 
     async def _end_completed_call() -> None:
         if call_ending.is_set():
             return
         call_ending.set()
-        await _finalize_call("qualification and callback preference complete")
+        await _finalize_call(
+            "qualification and callback preference complete",
+            "qualification_complete",
+        )
 
     async def _end_inactive_call() -> None:
         if call_ending.is_set():
@@ -992,7 +1011,8 @@ async def entrypoint(ctx: JobContext) -> None:
             extra_metadata={"timeout_seconds": str(call_idle_timeout)},
         )
         await _finalize_call(
-            f"call inactive for {call_idle_timeout:g} seconds"
+            f"call inactive for {call_idle_timeout:g} seconds",
+            "inactivity_timeout",
         )
 
     async def _end_duration_limited_call() -> None:
@@ -1020,7 +1040,10 @@ async def entrypoint(ctx: JobContext) -> None:
             await speech_handle.wait_for_playout()
         except Exception as exc:
             logger.warning("Duration-limit closing message failed: %s", exc)
-        await _finalize_call("call reached maximum qualification duration")
+        await _finalize_call(
+            "call reached maximum qualification duration",
+            "duration_limit",
+        )
 
     async def _watch_for_inactivity() -> None:
         while not call_ending.is_set():
@@ -1091,6 +1114,11 @@ async def entrypoint(ctx: JobContext) -> None:
             message="SIP participant did not join before the voice job timeout",
             extra_metadata={"timeout_seconds": str(sip_participant_wait_timeout)},
         )
+        await _report_call_result(
+            metadata,
+            "unanswered",
+            terminal_reason="participant_wait_timeout",
+        )
         ctx.shutdown(reason="SIP participant wait timed out")
         return
     except RuntimeError as exc:
@@ -1099,6 +1127,11 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.info(
             "Room disconnected before the SIP participant joined: room=%s",
             ctx.room.name,
+        )
+        await _report_call_result(
+            metadata,
+            "unanswered",
+            terminal_reason="room_disconnected_before_answer",
         )
         return
 
@@ -1117,8 +1150,19 @@ async def entrypoint(ctx: JobContext) -> None:
     def _on_participant_disconnected(disconnected_participant: Any) -> None:
         if disconnected_participant.identity != participant.identity:
             return
+        if call_ending.is_set():
+            return
         call_ending.set()
-        asyncio.create_task(_report_call_result(metadata, "completed"))
+
+        async def _store_and_report_disconnect() -> None:
+            await _persist_call_artifacts()
+            await _report_call_result(
+                metadata,
+                "completed",
+                terminal_reason="participant_disconnected",
+            )
+
+        asyncio.create_task(_store_and_report_disconnect())
 
     _schedule_pipeline_event(
         metadata,

@@ -17,7 +17,7 @@ async def reset_migration_database() -> None:
         await engine.dispose()
 
 
-async def inspect_migration_database() -> tuple[set[str], set[str], set[str]]:
+async def inspect_migration_database() -> tuple[set[str], set[str], set[str], set[str]]:
     engine = create_test_engine()
     try:
         async with engine.connect() as connection:
@@ -31,6 +31,10 @@ async def inspect_migration_database() -> tuple[set[str], set[str], set[str]]:
                     {
                         column["name"]
                         for column in inspect(sync_connection).get_columns("call_attempts")
+                    },
+                    {
+                        column["name"]
+                        for column in inspect(sync_connection).get_columns("call_outcomes")
                     },
                 )
             )
@@ -56,7 +60,7 @@ def test_identity_migration_upgrade_and_downgrade(monkeypatch) -> None:
     asyncio.run(reset_migration_database())
     command.upgrade(config, "head")
 
-    tables, user_columns, call_attempt_columns = asyncio.run(inspect_migration_database())
+    tables, user_columns, call_attempt_columns, call_outcome_columns = asyncio.run(inspect_migration_database())
     assert {
         "tenants",
         "users",
@@ -70,6 +74,7 @@ def test_identity_migration_upgrade_and_downgrade(monkeypatch) -> None:
         "leads",
         "lead_imports",
         "lead_import_rows",
+        "call_outcomes",
     }.issubset(tables)
     assert {"realm", "platform_role"}.issubset(user_columns)
     assert {
@@ -78,7 +83,18 @@ def test_identity_migration_upgrade_and_downgrade(monkeypatch) -> None:
         "recording_status",
         "recording_storage_uri",
         "recording_url",
+        "terminal_reason",
+        "artifacts_finalized_at",
     }.issubset(call_attempt_columns)
+    assert {
+        "processing_status",
+        "label",
+        "summary",
+        "qualification_facts_json",
+        "evidence_json",
+        "callback_original_phrase",
+        "callback_at",
+    }.issubset(call_outcome_columns)
 
     command.downgrade(config, "base")
 

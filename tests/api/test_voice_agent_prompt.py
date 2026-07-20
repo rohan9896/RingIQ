@@ -18,6 +18,7 @@ from apps.voice_worker.agent import (
     _duration_limit_closing_message,
     _identity_confirmation,
     _initial_greeting,
+    _report_call_result,
     _start_call_recording,
     _stop_call_recording,
 )
@@ -421,3 +422,45 @@ def test_duration_limit_closing_matches_customer_language() -> None:
         "Our sales team will call you back shortly."
     )
     assert "sales team" in _duration_limit_closing_message(None, "हाँ, ठीक है")
+
+
+def test_call_result_reports_bounded_terminal_reason(monkeypatch) -> None:
+    from apps.voice_worker import agent as agent_module
+
+    requests: list[dict] = []
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        def post(self, url: str, **kwargs: object) -> FakeResponse:
+            requests.append({"url": url, **kwargs})
+            return FakeResponse()
+
+    monkeypatch.setenv("RINGIQ_INTERNAL_API_KEY", "internal-secret")
+    monkeypatch.setattr(agent_module.aiohttp, "ClientSession", FakeSession)
+
+    asyncio.run(
+        _report_call_result(
+            {"call_attempt_id": "attempt-1"},
+            "completed",
+            terminal_reason="participant_disconnected",
+        )
+    )
+
+    assert requests[0]["json"] == {
+        "status": "completed",
+        "terminal_reason": "participant_disconnected",
+    }

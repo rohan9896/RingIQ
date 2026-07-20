@@ -16,6 +16,7 @@ import {
   type LeadCampaignHistory,
   updateLead,
 } from "@/lib/api-client";
+import { PostCallOutcome } from "@/components/post-call-outcome";
 
 const manualStatuses = ["new", "in_progress", "follow_up", "closed"] as const;
 
@@ -202,7 +203,7 @@ export function LeadDetailWorkspace({ leadId }: { leadId: string }) {
               </div>
               <div><p className="utility-label">Enrollment</p><p className="mt-1 text-sm font-bold">{item.enrollment_status.replaceAll("_", " ")}</p></div>
               <div><p className="utility-label">Attempts</p><p className="mt-1 text-sm font-bold">{item.attempt_count}</p></div>
-              {item.attempts.length ? <div className="sm:col-span-3"><div className="flex flex-wrap gap-2">{item.attempts.map((attempt) => <span className="border border-[#d8d5cc] px-2 py-1 text-xs" key={attempt.id}>Attempt {attempt.attempt_number}: {attempt.status.replaceAll("_", " ")}</span>)}</div></div> : null}
+              {item.attempts.length ? <div className="space-y-3 sm:col-span-3">{item.attempts.map((attempt) => <section className="border border-[#d8d5cc] bg-[#f7f6f1] p-4" key={attempt.id}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-black uppercase text-[#6d6b64]">Attempt {attempt.attempt_number}</p><span className="text-xs font-bold capitalize">{attempt.status.replaceAll("_", " ")}</span></div><PostCallOutcome callStatus={attempt.status} outcome={attempt.outcome} /></section>)}</div> : null}
             </div>
           ))}
           {!campaignHistory.length ? <div className="p-5 text-sm text-[#6d6b64]">This lead has not been enrolled in a campaign.</div> : null}

@@ -518,12 +518,48 @@ export type CallAttempt = {
   livekit_room_name: string | null;
   failure_code: string | null;
   failure_detail: string | null;
+  terminal_reason: string | null;
+  artifacts_finalized_at: string | null;
+  outcome: PostCallOutcome | null;
 };
 
 export type TranscriptTurn = {
   role: "user" | "assistant";
   text: string;
   interrupted: boolean;
+};
+
+export type OutcomeLabel =
+  | "hot"
+  | "warm"
+  | "cold"
+  | "callback_requested"
+  | "not_interested"
+  | "unanswered"
+  | "invalid_number"
+  | "needs_review";
+
+export type PostCallOutcome = {
+  id: string;
+  processing_status: "pending" | "processing" | "completed" | "failed";
+  processing_error: string | null;
+  processed_at: string | null;
+  label: OutcomeLabel | null;
+  confidence: number | null;
+  rationale: string | null;
+  summary: string | null;
+  qualification_facts: {
+    area: string | null;
+    budget: string | null;
+    property_type: string | null;
+    intent: string | null;
+    timeline: string | null;
+  };
+  evidence: Array<{ turn_index: number; speaker: "user" | "assistant"; quote: string }>;
+  callback_original_phrase: string | null;
+  callback_timezone: string | null;
+  callback_at: string | null;
+  terminal_reason: string | null;
 };
 
 export type CallActivity = {
@@ -542,6 +578,8 @@ export type CallActivity = {
   transcript: TranscriptTurn[];
   recording_status: string | null;
   recording_url: string | null;
+  terminal_reason: string | null;
+  outcome: PostCallOutcome | null;
 };
 
 export function fetchCalls(token: string) {

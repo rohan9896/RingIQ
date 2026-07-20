@@ -15,6 +15,7 @@ import type { Route } from "next";
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchCalls, type CallActivity } from "@/lib/api-client";
+import { PostCallOutcome } from "@/components/post-call-outcome";
 
 function formatDuration(seconds: number | null) {
   if (seconds == null) return "--";
@@ -76,16 +77,17 @@ export function CallsWorkspace() {
                 <Link className="font-black text-[#171714] hover:text-[#d73a2f]" href={`/leads/${call.lead_id}` as Route}>{call.lead_name}</Link>
                 <p className="mt-1 truncate text-xs text-[#6d6b64]">{call.campaign_name} · {call.lead_phone_number}{call.started_at ? ` · ${new Date(call.started_at).toLocaleString()}` : ""}</p>
               </div>
-              <span className="text-sm font-bold capitalize">{call.status.replaceAll("_", " ")}</span>
+              <div><span className="text-sm font-bold capitalize">{call.status.replaceAll("_", " ")}</span><div className="mt-1"><PostCallOutcome callStatus={call.status} compact outcome={call.outcome} /></div></div>
               <span className="text-sm text-[#6d6b64]">{formatDuration(call.duration_seconds)}</span>
               <div>
                 {call.recording_url ? <audio className="h-8 w-28" controls preload="none" src={call.recording_url}><track kind="captions" /></audio> : <span className="inline-flex items-center gap-2 text-xs font-bold text-[#6d6b64]"><Headphones className="size-4" />{call.recording_status === "recording" ? "Processing" : "Unavailable"}</span>}
               </div>
-              <button aria-expanded={isExpanded} className="inline-flex size-9 items-center justify-center border border-[#d8d5cc] hover:border-[#171714] disabled:opacity-40" disabled={!call.transcript.length} onClick={() => setExpandedId(isExpanded ? null : call.id)} title={isExpanded ? "Hide transcript" : "Show transcript"} type="button">{isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</button>
+              <button aria-expanded={isExpanded} className="inline-flex size-9 items-center justify-center border border-[#d8d5cc] hover:border-[#171714] disabled:opacity-40" disabled={!call.transcript.length && !call.outcome} onClick={() => setExpandedId(isExpanded ? null : call.id)} title={isExpanded ? "Hide call details" : "Show call details"} type="button">{isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</button>
             </div>
             {isExpanded ? <div className="border-t border-[#e3e0d8] bg-[#f7f6f1] px-5 py-5">
-              <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase text-[#6d6b64]"><MessageSquareText className="size-4" />Transcript</div>
-              <div className="space-y-3">{call.transcript.map((turn, index) => <div className="grid gap-1 sm:grid-cols-[80px_minmax(0,1fr)]" key={`${call.id}-${index}`}><span className="text-xs font-black uppercase text-[#6d6b64]">{turn.role === "assistant" ? "Agent" : "Customer"}</span><p className="text-sm leading-6 text-[#171714]">{turn.text}</p></div>)}</div>
+              <PostCallOutcome callStatus={call.status} outcome={call.outcome} />
+              {call.transcript.length ? <div className="mt-6 border-t border-[#d8d5cc] pt-5"><div className="mb-4 flex items-center gap-2 text-xs font-black uppercase text-[#6d6b64]"><MessageSquareText className="size-4" />Transcript</div>
+              <div className="space-y-3">{call.transcript.map((turn, index) => <div className="grid gap-1 sm:grid-cols-[80px_minmax(0,1fr)]" key={`${call.id}-${index}`}><span className="text-xs font-black uppercase text-[#6d6b64]">{turn.role === "assistant" ? "Agent" : "Customer"}</span><p className="text-sm leading-6 text-[#171714]">{turn.text}</p></div>)}</div></div> : null}
             </div> : null}
           </article>;
         })}

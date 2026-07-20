@@ -18,6 +18,7 @@ from apps.api.ringiq_api.models.knowledge import (
     TenantKnowledgeBase,
     TenantKnowledgeBaseVersion,
 )
+from apps.api.ringiq_api.services.campaign_operations import CALL_JOB_TYPE
 from tests.api.postgres import create_test_engine, reset_database
 
 
@@ -202,7 +203,10 @@ def test_campaign_lifecycle_creates_durable_call_jobs(
                 list(
                     (
                         await session.execute(
-                            select(Job).where(Job.status == JobStatus.PENDING.value)
+                            select(Job).where(
+                                Job.job_type == CALL_JOB_TYPE,
+                                Job.status == JobStatus.PENDING.value,
+                            )
                         )
                     ).scalars()
                 )
@@ -336,6 +340,67 @@ def test_call_artifacts_are_stored_and_tenant_scoped(
     assert stored.status_code == 200
     assert stored.json() == {"status": "stored"}
 
+    completed = client.post(
+        f"/v1/internal/call-attempts/{attempt_id}/result",
+        headers={"X-RingIQ-Internal-Key": "artifact-secret"},
+        json={
+            "status": "completed",
+            "terminal_reason": "participant_disconnected",
+        },
+    )
+    assert completed.status_code == 200
+    repeated = client.post(
+        f"/v1/internal/call-attempts/{attempt_id}/artifacts",
+        headers={"X-RingIQ-Internal-Key": "artifact-secret"},
+        json={
+            "transcript": [
+                {"role": "assistant", "text": "Aapka budget kya hai?"},
+                {"role": "user", "text": "Do crore."},
+            ]
+        },
+    )
+    assert repeated.status_code == 200
+    changed_transcript = client.post(
+        f"/v1/internal/call-attempts/{attempt_id}/artifacts",
+        headers={"X-RingIQ-Internal-Key": "artifact-secret"},
+        json={"transcript": [{"role": "user", "text": "Different."}]},
+    )
+    assert changed_transcript.status_code == 409
+    null_transcript = client.post(
+        f"/v1/internal/call-attempts/{attempt_id}/artifacts",
+        headers={"X-RingIQ-Internal-Key": "artifact-secret"},
+        json={"transcript": None},
+    )
+    assert null_transcript.status_code == 422
+
+    from apps.api.ringiq_api.services.post_call_outcomes import (
+        ExtractedOutcome,
+        OutcomeEvidence,
+        QualificationFacts,
+    )
+
+    class FakeExtractor:
+        provider = "test"
+        model = "test-model"
+
+        async def extract(self, **_: object) -> ExtractedOutcome:
+            return ExtractedOutcome(
+                label="warm",
+                confidence=0.9,
+                rationale="The customer shared a budget.",
+                summary="The customer has a two crore budget.",
+                qualification_facts=QualificationFacts(budget="Do crore"),
+                evidence=[OutcomeEvidence(turn_index=1, speaker="user", quote="Do crore.")],
+            )
+
+    monkeypatch.setattr(worker_module, "extractor_from_settings", lambda _: FakeExtractor())
+    monkeypatch.setattr(
+        worker_module,
+        "get_app_settings",
+        lambda: AppSettings(post_call_outcome_api_key="test-key"),
+    )
+    assert asyncio.run(worker_module.process_next_call_job("outcome-worker")) is True
+
     calls = client.get("/v1/calls")
     assert calls.status_code == 200
     call = calls.json()[0]
@@ -343,6 +408,25 @@ def test_call_artifacts_are_stored_and_tenant_scoped(
     assert call["lead_id"] == lead_id
     assert call["transcript"][1]["text"] == "Do crore."
     assert call["recording_url"] == "https://media.example.com/call.mp3"
+    assert call["terminal_reason"] == "participant_disconnected"
+    assert call["outcome"]["label"] == "warm"
+    assert call["outcome"]["evidence"][0]["quote"] == "Do crore."
+    history = client.get(f"/v1/leads/{lead_id}/campaign-history").json()
+    assert history[0]["attempts"][0]["outcome"] == call["outcome"]
+
+    async def post_call_job_count() -> int:
+        async with session_factory() as session:
+            return len(
+                list(
+                    (
+                        await session.execute(
+                            select(Job).where(Job.job_type == "call.post_call_outcome")
+                        )
+                    ).scalars()
+                )
+            )
+
+    assert asyncio.run(post_call_job_count()) == 1
 
     client.app.dependency_overrides[get_current_tenant_context] = lambda: TenantContext(
         tenant_id=uuid.uuid4(),
@@ -464,7 +548,10 @@ def test_unanswered_call_schedules_one_retry_idempotently(
                 list(
                     (
                         await session.execute(
-                            select(Job).where(Job.status == JobStatus.PENDING.value)
+                            select(Job).where(
+                                Job.job_type == CALL_JOB_TYPE,
+                                Job.status == JobStatus.PENDING.value,
+                            )
                         )
                     ).scalars()
                 )
