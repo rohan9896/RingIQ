@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from apps.api.ringiq_api.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -22,6 +23,21 @@ class PlatformRole(StrEnum):
     SUPER_ADMIN = "platform_super_admin"
     OPERATIONS = "platform_operations"
     TEMPLATE_MANAGER = "template_manager"
+
+
+class PlatformInvitationStatus(StrEnum):
+    CREATING = "creating"
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REVOKED = "revoked"
+    EXPIRED = "expired"
+    FAILED = "failed"
+
+
+class WebhookReceiptStatus(StrEnum):
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    FAILED = "failed"
 
 
 class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -101,6 +117,77 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
+
+class PlatformUserInvitation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "platform_user_invitations"
+    __table_args__ = (
+        CheckConstraint("email = lower(btrim(email))", name="email_normalized"),
+        CheckConstraint(
+            "platform_role IN ('platform_super_admin', 'platform_operations', 'template_manager')",
+            name="platform_role_valid",
+        ),
+        CheckConstraint(
+            "status IN ('creating', 'pending', 'accepted', 'revoked', 'expired', 'failed')",
+            name="status_valid",
+        ),
+        Index(
+            "uq_platform_user_invitations_open_email",
+            "email",
+            unique=True,
+            postgresql_where=text("status IN ('creating', 'pending')"),
+        ),
+    )
+
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    platform_role: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    clerk_invitation_id: Mapped[str | None] = mapped_column(
+        String(64), unique=True, index=True
+    )
+    invited_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    accepted_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), unique=True, index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=PlatformInvitationStatus.CREATING.value,
+        server_default=text("'creating'"),
+        index=True,
+    )
+    failure_reason: Mapped[str | None] = mapped_column(String(500))
+
+
+class WebhookReceipt(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "webhook_receipts"
+    __table_args__ = (
+        UniqueConstraint("provider", "delivery_id"),
+        CheckConstraint(
+            "status IN ('processing', 'processed', 'failed')",
+            name="status_valid",
+        ),
+    )
+
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    delivery_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=WebhookReceiptStatus.PROCESSING.value,
+        server_default=text("'processing'"),
+        index=True,
+    )
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    error: Mapped[str | None] = mapped_column(String(1000))
 
 
 class TenantMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):

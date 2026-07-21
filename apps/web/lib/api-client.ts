@@ -91,6 +91,38 @@ export type PlatformIdentity = {
   role: PlatformRole;
 };
 
+export type PlatformUserStatus = "active" | "inactive" | "suspended";
+
+export type PlatformManagedUser = {
+  id: string;
+  clerk_user_id: string;
+  primary_email: string | null;
+  display_name: string | null;
+  platform_role: PlatformRole;
+  status: PlatformUserStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlatformInvitationStatus =
+  | "creating"
+  | "pending"
+  | "accepted"
+  | "revoked"
+  | "expired"
+  | "failed";
+
+export type PlatformUserInvitation = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  platform_role: PlatformRole;
+  status: PlatformInvitationStatus;
+  expires_at: string;
+  created_at: string;
+  accepted_user_id: string | null;
+};
+
 export type PlatformOverview = {
   counts: {
     organizations: number;
@@ -108,6 +140,7 @@ export type PlatformOverview = {
 
 export async function fetchPlatformIdentity(token: string) {
   const response = await fetch(`${apiBaseUrl}/v1/platform/me`, {
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -123,6 +156,38 @@ export async function fetchPlatformIdentity(token: string) {
   }
 
   return (await response.json()) as PlatformIdentity;
+}
+
+export async function completePlatformOnboarding(token: string) {
+  return platformRequest<PlatformManagedUser>(token, "/onboarding/complete", {
+    method: "POST",
+  });
+}
+
+export function fetchPlatformUsers(token: string) {
+  return platformRequest<PlatformManagedUser[]>(token, "/users");
+}
+
+export function fetchPlatformUserInvitations(token: string) {
+  return platformRequest<PlatformUserInvitation[]>(token, "/user-invitations");
+}
+
+export function createPlatformUserInvitation(
+  token: string,
+  payload: { email: string; display_name?: string; role: PlatformRole },
+) {
+  return platformRequest<PlatformUserInvitation>(token, "/user-invitations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function revokePlatformUserInvitation(token: string, invitationId: string) {
+  return platformRequest<PlatformUserInvitation>(
+    token,
+    `/user-invitations/${invitationId}/revoke`,
+    { method: "POST" },
+  );
 }
 
 export type CategoryStatus = "active" | "inactive";

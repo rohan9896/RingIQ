@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { TenantProvisioningGate } from "@/components/tenant-provisioning-gate";
+import { resolveAuthenticatedDestination } from "@/lib/server-post-auth-destination";
 
 export default async function ProtectedAppLayout({
   children,
@@ -15,7 +16,7 @@ export default async function ProtectedAppLayout({
   }
 
   if (!orgId) {
-    redirect("/workspace/setup");
+    redirect((await resolveAuthenticatedDestination()) ?? "/sign-in");
   }
 
   return (

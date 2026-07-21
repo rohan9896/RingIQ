@@ -128,7 +128,27 @@ Apply the identity migrations:
 uv run alembic upgrade head
 ```
 
-Create the first platform super administrator after creating its dedicated user in Clerk:
+Configure a Clerk webhook endpoint at `/webhooks/clerk`, subscribe it to
+`user.created`, `user.updated`, and `user.deleted`, and set its signing secret in
+`CLERK_WEBHOOK_SIGNING_SECRET`. Set `PLATFORM_INVITATION_REDIRECT_URL` to the
+web application's `/platform/accept-invitation` URL.
+
+Invite the first platform super administrator directly from RingIQ. The
+bootstrap command refuses to create another invitation after a super
+administrator exists or while another first-admin invitation is open:
+
+```bash
+uv run python -m scripts.bootstrap_platform_user \
+  --email admin@ringiq.in \
+  --display-name "RingIQ Admin"
+```
+
+The recipient follows the Clerk invitation link, creates a password, and lands
+in the platform console without tenant workspace setup. Super administrators can
+invite additional platform users from `/platform/users`.
+
+For break-glass recovery, an existing dedicated Clerk identity can still be
+provisioned directly. The command refuses to convert a tenant identity:
 
 ```bash
 uv run python -m scripts.bootstrap_platform_user \
@@ -137,4 +157,13 @@ uv run python -m scripts.bootstrap_platform_user \
   --display-name "RingIQ Admin"
 ```
 
-The bootstrap command refuses to convert an existing tenant identity. Subsequent platform-user invitations will be managed through the platform console in a later implementation slice.
+After upgrading an existing deployment, mirror all database-owned platform
+identity fields into Clerk private metadata once:
+
+```bash
+uv run python -m scripts.bootstrap_platform_user --reconcile-metadata
+```
+
+RingIQ continues to authorize platform requests from PostgreSQL. Clerk private
+metadata is an operational mirror and is never used as the source of roles or
+account status.

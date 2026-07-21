@@ -1,14 +1,11 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { resolveAuthenticatedDestination } from "@/lib/server-post-auth-destination";
 
 export default async function SignInPage() {
-  const { userId } = await auth();
-
-  if (userId) {
-    redirect("/dashboard");
-  }
+  const destination = await resolveAuthenticatedDestination();
+  if (destination) redirect(destination);
 
   return (
     <div className="w-full max-w-[27rem]">

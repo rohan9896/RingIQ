@@ -110,6 +110,13 @@ class IdentitySettings(AppSettings):
     clerk_secret_key: str = Field(..., alias="CLERK_SECRET_KEY")
     clerk_jwt_key: str = Field(..., alias="CLERK_JWT_KEY")
     clerk_authorized_parties_raw: str = Field(..., alias="CLERK_AUTHORIZED_PARTIES")
+    clerk_webhook_signing_secret: str | None = Field(
+        default=None, alias="CLERK_WEBHOOK_SIGNING_SECRET"
+    )
+    platform_invitation_redirect_url: str = Field(
+        default="http://localhost:3000/platform/accept-invitation",
+        alias="PLATFORM_INVITATION_REDIRECT_URL",
+    )
 
     @model_validator(mode="after")
     def validate_clerk_settings(self) -> "IdentitySettings":

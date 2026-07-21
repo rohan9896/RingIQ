@@ -110,7 +110,6 @@ async def get_current_platform_context(
     statement = select(User).where(
         User.clerk_user_id == principal.user_id,
         User.realm == UserRealm.PLATFORM.value,
-        User.status == RecordStatus.ACTIVE.value,
     )
     try:
         user = (await session.execute(statement)).scalar_one_or_none()
@@ -128,6 +127,11 @@ async def get_current_platform_context(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="platform_access_not_provisioned",
+        )
+    if user.status != RecordStatus.ACTIVE.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="platform_identity_inactive",
         )
 
     return PlatformContext(

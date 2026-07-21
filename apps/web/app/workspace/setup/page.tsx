@@ -1,13 +1,11 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { WorkspaceSetup } from "@/components/workspace-setup";
+import { resolveAuthenticatedDestination } from "@/lib/server-post-auth-destination";
 
 export default async function WorkspaceSetupPage() {
-  const { orgId } = await auth();
-
-  if (orgId) {
-    redirect("/dashboard");
-  }
+  const destination = await resolveAuthenticatedDestination();
+  if (!destination) redirect("/sign-in");
+  if (destination !== "/workspace/setup") redirect(destination);
 
   return <WorkspaceSetup />;
 }

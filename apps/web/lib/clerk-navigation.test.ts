@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { navigateWithClerk, postAuthDestination } from "./clerk-navigation.ts";
+import {
+  navigateWithClerk,
+  tenantPostAuthDestination,
+} from "./clerk-navigation.ts";
 
 test("routes the choose-organization task to workspace setup", () => {
   assert.equal(
-    postAuthDestination("choose-organization", "/dashboard"),
+    tenantPostAuthDestination("choose-organization", "/dashboard"),
     "/workspace/setup",
   );
 });
 
 test("keeps the requested destination when no organization task is pending", () => {
-  assert.equal(postAuthDestination(null, "/platform"), "/platform");
+  assert.equal(tenantPostAuthDestination(null, "/dashboard"), "/dashboard");
 });
 
 test("uses client navigation for a relative Clerk-decorated URL", () => {

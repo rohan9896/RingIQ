@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -32,7 +33,7 @@ const roleLabels: Record<PlatformRole, string> = {
 
 type PlatformNavigationItem = {
   label: string;
-  href: "/platform" | "/platform/templates";
+  href: "/platform" | "/platform/templates" | "/platform/users";
   icon: typeof LayoutDashboard;
   roles: readonly PlatformRole[] | null;
 };
@@ -41,7 +42,7 @@ const navigation: PlatformNavigationItem[] = [
   { label: "Overview", href: "/platform", icon: LayoutDashboard, roles: null },
   { label: "Organizations", href: "/platform", icon: Building2, roles: ["platform_super_admin", "platform_operations"] },
   { label: "Org users", href: "/platform", icon: Users, roles: ["platform_super_admin", "platform_operations"] },
-  { label: "Platform users", href: "/platform", icon: Shield, roles: ["platform_super_admin"] },
+  { label: "Platform users", href: "/platform/users", icon: Shield, roles: ["platform_super_admin"] },
   { label: "Starter templates", href: "/platform/templates", icon: FileQuestion, roles: ["platform_super_admin", "template_manager"] },
   { label: "Service health", href: "/platform", icon: Activity, roles: ["platform_super_admin", "platform_operations"] },
 ];
@@ -71,7 +72,11 @@ export function PlatformShell({ children }: PlatformShellProps) {
           router.replace("/dashboard");
           return;
         }
-        if (detail === "platform_access_not_provisioned" || detail === "unauthorized") {
+        if (
+          detail === "platform_access_not_provisioned" ||
+          detail === "platform_identity_inactive" ||
+          detail === "unauthorized"
+        ) {
           await signOut({ redirectUrl: "/sign-in" });
           return;
         }
@@ -125,11 +130,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
               const active = pathname === item.href && (item.href !== "/platform" || index === 0);
               const className = `flex h-10 items-center gap-3 px-3 text-sm font-bold ${active ? "bg-[#171714] text-white" : "text-[#4e4c46] hover:bg-[#f0eee8]"}`;
               const content = <><item.icon className="size-4" aria-hidden />{item.label}</>;
-              return item.href === "/platform/templates" ? (
-                <Link className={className} href="/platform/templates" key={item.label}>{content}</Link>
-              ) : (
-                <Link className={className} href="/platform" key={item.label}>{content}</Link>
-              );
+              return <Link className={className} href={item.href as Route} key={item.label}>{content}</Link>;
             })}
           </nav>
           <div className="border-t border-[#171714] p-4">

@@ -1,3 +1,7 @@
+import logging
+import uuid
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +10,8 @@ from apps.api.ringiq_api.auth.context import (
     PlatformContext,
     get_current_platform_context,
 )
+from apps.api.ringiq_api.auth.clerk import ClerkPrincipal, require_clerk_principal
+from apps.api.ringiq_api.config import IdentitySettings, get_identity_settings
 from apps.api.ringiq_api.db.session import get_db_session
 from apps.api.ringiq_api.models.catalog import (
     Category,
@@ -17,19 +23,39 @@ from apps.api.ringiq_api.models.catalog import (
 )
 from apps.api.ringiq_api.models.identity import (
     PlatformRole,
+    PlatformInvitationStatus,
+    PlatformUserInvitation,
     RecordStatus,
     Tenant,
     User,
     UserRealm,
 )
 from apps.api.ringiq_api.schemas.platform import (
+    CreatePlatformInvitationRequest,
+    PlatformInvitation,
+    PlatformManagedUser,
     PlatformMeResponse,
     PlatformOverviewCounts,
     PlatformOverviewResponse,
     PlatformStarterSeedResponse,
 )
+from apps.api.ringiq_api.services.clerk_directory import (
+    ClerkDirectory,
+    ClerkDirectoryUnavailable,
+    ClerkUserNotFound,
+    get_clerk_directory,
+)
+from apps.api.ringiq_api.services.platform_identity import (
+    PlatformIdentityConflict,
+    PlatformIdentityUnavailable,
+    PlatformInvitationInvalid,
+    create_platform_invitation,
+    mirror_platform_user,
+    provision_platform_user,
+)
 
 router = APIRouter(prefix="/v1/platform", tags=["platform"])
+logger = logging.getLogger("ringiq.api.platform")
 
 REAL_ESTATE_CATEGORY_KEY = "real_estate"
 REAL_ESTATE_TEMPLATE_TITLE = "Real estate lead qualification starter"
@@ -205,6 +231,154 @@ async def get_platform_me(
     context: PlatformContext = Depends(get_current_platform_context),
 ) -> PlatformMeResponse:
     return PlatformMeResponse(**context.__dict__)
+
+
+@router.get("/users", response_model=list[PlatformManagedUser])
+async def list_platform_users(
+    _: PlatformContext = Depends(require_platform_roles(PlatformRole.SUPER_ADMIN)),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[User]:
+    return list(
+        (
+            await session.scalars(
+                select(User)
+                .where(User.realm == UserRealm.PLATFORM.value)
+                .order_by(User.created_at.desc())
+            )
+        ).all()
+    )
+
+
+@router.get("/user-invitations", response_model=list[PlatformInvitation])
+async def list_platform_invitations(
+    _: PlatformContext = Depends(require_platform_roles(PlatformRole.SUPER_ADMIN)),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[PlatformUserInvitation]:
+    now = datetime.now(UTC)
+    pending = (
+        await session.scalars(
+            select(PlatformUserInvitation).where(
+                PlatformUserInvitation.status == PlatformInvitationStatus.PENDING.value,
+                PlatformUserInvitation.expires_at <= now,
+            )
+        )
+    ).all()
+    if pending:
+        for invitation in pending:
+            invitation.status = PlatformInvitationStatus.EXPIRED.value
+        await session.commit()
+    return list(
+        (
+            await session.scalars(
+                select(PlatformUserInvitation).order_by(
+                    PlatformUserInvitation.created_at.desc()
+                )
+            )
+        ).all()
+    )
+
+
+@router.post(
+    "/user-invitations",
+    response_model=PlatformInvitation,
+    status_code=status.HTTP_201_CREATED,
+)
+async def invite_platform_user(
+    payload: CreatePlatformInvitationRequest,
+    context: PlatformContext = Depends(
+        require_platform_roles(PlatformRole.SUPER_ADMIN)
+    ),
+    session: AsyncSession = Depends(get_db_session),
+    clerk_directory: ClerkDirectory = Depends(get_clerk_directory),
+    settings: IdentitySettings = Depends(get_identity_settings),
+) -> PlatformUserInvitation:
+    try:
+        return await create_platform_invitation(
+            session,
+            clerk_directory,
+            email=payload.email,
+            display_name=payload.display_name,
+            role=payload.role,
+            invited_by_user_id=context.user_id,
+            redirect_url=settings.platform_invitation_redirect_url,
+        )
+    except PlatformIdentityConflict as exc:
+        raise HTTPException(status_code=409, detail="platform_identity_conflict") from exc
+    except ClerkDirectoryUnavailable as exc:
+        raise HTTPException(status_code=502, detail="clerk_directory_unavailable") from exc
+    except PlatformIdentityUnavailable as exc:
+        raise HTTPException(status_code=503, detail="platform_identity_unavailable") from exc
+
+
+@router.post(
+    "/user-invitations/{invitation_id}/revoke",
+    response_model=PlatformInvitation,
+)
+async def revoke_platform_user_invitation(
+    invitation_id: uuid.UUID,
+    _: PlatformContext = Depends(require_platform_roles(PlatformRole.SUPER_ADMIN)),
+    session: AsyncSession = Depends(get_db_session),
+    clerk_directory: ClerkDirectory = Depends(get_clerk_directory),
+) -> PlatformUserInvitation:
+    invitation = await session.scalar(
+        select(PlatformUserInvitation)
+        .where(PlatformUserInvitation.id == invitation_id)
+        .with_for_update()
+    )
+    if invitation is None:
+        raise HTTPException(status_code=404, detail="platform_invitation_not_found")
+    if invitation.status != PlatformInvitationStatus.PENDING.value:
+        raise HTTPException(status_code=409, detail="platform_invitation_not_pending")
+    if invitation.expires_at <= datetime.now(UTC):
+        invitation.status = PlatformInvitationStatus.EXPIRED.value
+        await session.commit()
+        raise HTTPException(status_code=409, detail="platform_invitation_expired")
+    if not invitation.clerk_invitation_id:
+        raise HTTPException(status_code=409, detail="platform_invitation_not_pending")
+    try:
+        await clerk_directory.revoke_platform_invitation(
+            invitation_id=invitation.clerk_invitation_id
+        )
+    except ClerkDirectoryUnavailable as exc:
+        raise HTTPException(status_code=502, detail="clerk_directory_unavailable") from exc
+    invitation.status = PlatformInvitationStatus.REVOKED.value
+    await session.commit()
+    await session.refresh(invitation)
+    return invitation
+
+
+@router.post("/onboarding/complete", response_model=PlatformManagedUser)
+async def complete_platform_onboarding(
+    principal: ClerkPrincipal = Depends(require_clerk_principal),
+    session: AsyncSession = Depends(get_db_session),
+    clerk_directory: ClerkDirectory = Depends(get_clerk_directory),
+) -> User:
+    if principal.organization_id is not None:
+        raise HTTPException(
+            status_code=403, detail="platform_identity_has_active_organization"
+        )
+    try:
+        clerk_user = await clerk_directory.get_platform_user(user_id=principal.user_id)
+        user = await provision_platform_user(session, clerk_user)
+    except ClerkUserNotFound as exc:
+        raise HTTPException(status_code=403, detail="platform_invitation_invalid") from exc
+    except PlatformInvitationInvalid as exc:
+        raise HTTPException(status_code=403, detail="platform_invitation_invalid") from exc
+    except PlatformIdentityConflict as exc:
+        raise HTTPException(status_code=409, detail="platform_identity_conflict") from exc
+    except ClerkDirectoryUnavailable as exc:
+        raise HTTPException(status_code=502, detail="clerk_directory_unavailable") from exc
+    except PlatformIdentityUnavailable as exc:
+        raise HTTPException(status_code=503, detail="platform_identity_unavailable") from exc
+
+    try:
+        await mirror_platform_user(clerk_directory, user)
+    except ClerkDirectoryUnavailable:
+        logger.exception(
+            "platform_onboarding.metadata_mirror_failed clerk_user_id=%s",
+            user.clerk_user_id,
+        )
+    return user
 
 
 @router.get("/overview", response_model=PlatformOverviewResponse)

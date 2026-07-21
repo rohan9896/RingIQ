@@ -10,11 +10,14 @@ from apps.api.ringiq_api.models.catalog import (
     TemplateStatus,
 )
 from apps.api.ringiq_api.models.identity import (
+    PlatformInvitationStatus,
     PlatformRole,
+    PlatformUserInvitation,
     Tenant,
     TenantMembership,
     User,
     UserRealm,
+    WebhookReceipt,
 )
 from tests.api.postgres import create_test_engine, reset_database
 
@@ -26,8 +29,26 @@ def test_identity_models_use_uuid_primary_keys_and_expected_defaults() -> None:
     assert User.__table__.c.realm.default.arg == "tenant"
     assert TenantMembership.__table__.c.status.default.arg == "active"
     assert TenantMembership.__table__.c.role_key.default.arg == "member"
+    assert PlatformUserInvitation.__table__.c.status.default.arg == "creating"
     assert Category.__table__.c.status.default.arg == "active"
     assert CategoryTemplateVersion.__table__.c.status.default.arg == "draft"
+
+
+def test_platform_invitation_and_webhook_uniqueness_are_declared() -> None:
+    invitation_indexes = {index.name: index for index in PlatformUserInvitation.__table__.indexes}
+    assert invitation_indexes["uq_platform_user_invitations_open_email"].unique is True
+    assert str(
+        invitation_indexes["uq_platform_user_invitations_open_email"].dialect_options[
+            "postgresql"
+        ]["where"]
+    ) == "status IN ('creating', 'pending')"
+
+    receipt_unique_sets = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in WebhookReceipt.__table__.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"
+    }
+    assert ("provider", "delivery_id") in receipt_unique_sets
 
 
 def test_membership_table_has_tenant_user_uniqueness() -> None:

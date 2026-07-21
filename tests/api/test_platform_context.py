@@ -7,7 +7,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from apps.api.ringiq_api.auth.clerk import ClerkPrincipal
 from apps.api.ringiq_api.auth.context import get_current_platform_context
-from apps.api.ringiq_api.models.identity import PlatformRole, User, UserRealm
+from apps.api.ringiq_api.models.identity import (
+    PlatformRole,
+    RecordStatus,
+    User,
+    UserRealm,
+)
 
 
 class FakeScalarResult:
@@ -30,6 +35,7 @@ async def test_active_platform_user_resolves_context() -> None:
         primary_email="ops@ringiq.in",
         realm=UserRealm.PLATFORM.value,
         platform_role=PlatformRole.OPERATIONS.value,
+        status=RecordStatus.ACTIVE.value,
     )
     session = AsyncMock()
     session.execute.return_value = FakeScalarResult(user)
@@ -62,6 +68,26 @@ async def test_unprovisioned_platform_user_is_forbidden() -> None:
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "platform_access_not_provisioned"
+
+
+@pytest.mark.asyncio
+async def test_inactive_platform_user_is_distinguished_from_tenant_signup() -> None:
+    user = User(
+        id=uuid.uuid4(),
+        clerk_user_id="user_platform",
+        primary_email="disabled@ringiq.in",
+        realm=UserRealm.PLATFORM.value,
+        platform_role=PlatformRole.OPERATIONS.value,
+        status=RecordStatus.INACTIVE.value,
+    )
+    session = AsyncMock()
+    session.execute.return_value = FakeScalarResult(user)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_platform_context(make_principal(), session)
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "platform_identity_inactive"
 
 
 @pytest.mark.asyncio

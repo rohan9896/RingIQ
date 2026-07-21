@@ -7,7 +7,8 @@ import { Loader2 } from "lucide-react";
 import { useAuth, useSignIn } from "@clerk/nextjs";
 import { AuthErrors } from "@/components/auth/auth-errors";
 import { AuthField } from "@/components/auth/auth-field";
-import { navigateWithClerk, postAuthDestination } from "@/lib/clerk-navigation";
+import { navigateWithClerk } from "@/lib/clerk-navigation";
+import { resolvePostAuthDestination } from "@/lib/post-auth-destination";
 
 type VerificationStrategy = "email_code" | "phone_code" | "totp" | "backup_code";
 
@@ -80,11 +81,8 @@ export function SignInForm({
 
     try {
       const result = await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          const nextPath = postAuthDestination(
-            session.currentTask?.key,
-            destination,
-          );
+        navigate: async ({ session, decorateUrl }) => {
+          const nextPath = await resolvePostAuthDestination(session, destination);
           navigateWithClerk(
             decorateUrl(nextPath),
             (url) => router.replace(url as Route),

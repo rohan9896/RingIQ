@@ -1,14 +1,11 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { SignUpForm } from "@/components/auth/sign-up-form";
+import { resolveAuthenticatedDestination } from "@/lib/server-post-auth-destination";
 
 export default async function SignUpPage() {
-  const { userId } = await auth();
-
-  if (userId) {
-    redirect("/dashboard");
-  }
+  const destination = await resolveAuthenticatedDestination();
+  if (destination) redirect(destination);
 
   return (
     <div className="w-full max-w-[29rem]">

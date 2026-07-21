@@ -40,4 +40,12 @@ test.describe.serial("Clerk verification handoff", () => {
     await expect(page.getByLabel("Email")).toHaveCount(0);
     await expect(page.getByText("You're already signed in.")).toHaveCount(0);
   });
+
+  test("platform invitation acceptance never falls through without a ticket", async ({ page }) => {
+    await page.goto("/platform/accept-invitation");
+
+    await expect(page.getByText("This platform invitation link is missing its ticket.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Accept invitation" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Platform sign in" })).toBeVisible();
+  });
 });

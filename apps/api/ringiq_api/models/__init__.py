@@ -22,11 +22,15 @@ from apps.api.ringiq_api.models.campaigns import (
     OutboxStatus,
 )
 from apps.api.ringiq_api.models.identity import (
+    PlatformInvitationStatus,
     PlatformRole,
+    PlatformUserInvitation,
     Tenant,
     TenantMembership,
     User,
     UserRealm,
+    WebhookReceipt,
+    WebhookReceiptStatus,
 )
 from apps.api.ringiq_api.models.knowledge import (
     TenantKnowledgeBase,
@@ -62,6 +66,8 @@ __all__ = [
     "LeadManualStatus",
     "LeadStatus",
     "PlatformRole",
+    "PlatformInvitationStatus",
+    "PlatformUserInvitation",
     "OutboxEvent",
     "OutboxStatus",
     "QnaQuestion",
@@ -74,4 +80,6 @@ __all__ = [
     "TenantMembership",
     "User",
     "UserRealm",
+    "WebhookReceipt",
+    "WebhookReceiptStatus",
 ]

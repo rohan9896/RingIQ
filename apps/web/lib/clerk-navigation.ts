@@ -2,7 +2,7 @@ export type ClerkNavigationLocation = {
   assign: (href: string) => void;
 };
 
-export function postAuthDestination(
+export function tenantPostAuthDestination(
   currentTaskKey: string | null | undefined,
   destination: string,
   organizationTaskDestination = "/workspace/setup",

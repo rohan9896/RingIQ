@@ -7,7 +7,8 @@ import { Loader2 } from "lucide-react";
 import { useAuth, useSignUp } from "@clerk/nextjs";
 import { AuthErrors } from "@/components/auth/auth-errors";
 import { AuthField } from "@/components/auth/auth-field";
-import { navigateWithClerk, postAuthDestination } from "@/lib/clerk-navigation";
+import { navigateWithClerk } from "@/lib/clerk-navigation";
+import { resolvePostAuthDestination } from "@/lib/post-auth-destination";
 
 export function SignUpForm() {
   const router = useRouter();
@@ -96,11 +97,8 @@ export function SignUpForm() {
 
     try {
       const result = await signUp.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          const destination = postAuthDestination(
-            session.currentTask?.key,
-            "/dashboard",
-          );
+        navigate: async ({ session, decorateUrl }) => {
+          const destination = await resolvePostAuthDestination(session);
           navigateWithClerk(
             decorateUrl(destination),
             (url) => router.replace(url as Route),

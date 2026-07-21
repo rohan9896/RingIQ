@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apps.api.ringiq_api.config import get_app_settings
 from apps.api.ringiq_api.db.session import dispose_database
 from apps.api.ringiq_api.logging import configure_logging
-from apps.api.ringiq_api.routes import campaigns, demo_calls, health, knowledge_base, leads, me, onboarding, platform, platform_catalog, workspace
+from apps.api.ringiq_api.routes import campaigns, demo_calls, health, knowledge_base, leads, me, onboarding, platform, platform_catalog, webhooks, workspace
 
 
 @asynccontextmanager
@@ -40,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(workspace.router)
     app.include_router(platform.router)
     app.include_router(platform_catalog.router)
+    app.include_router(webhooks.router)
     return app
 
 

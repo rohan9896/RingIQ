@@ -75,6 +75,8 @@ def test_identity_migration_upgrade_and_downgrade(monkeypatch) -> None:
         "lead_imports",
         "lead_import_rows",
         "call_outcomes",
+        "platform_user_invitations",
+        "webhook_receipts",
     }.issubset(tables)
     assert {"realm", "platform_role"}.issubset(user_columns)
     assert {
