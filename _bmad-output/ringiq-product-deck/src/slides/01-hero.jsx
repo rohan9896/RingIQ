@@ -2,8 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowUpRight,
-  Building2,
   Languages,
+  Shapes,
   PhoneCall,
   Sparkles,
   UserRoundCheck,
@@ -16,7 +16,7 @@ const reveal = {
 
 const tags = [
   { icon: Languages, label: 'Hindi + English + Hinglish' },
-  { icon: Building2, label: 'Real-estate first' },
+  { icon: Shapes, label: 'Category-independent' },
   { icon: UserRoundCheck, label: 'Human follow-up where it matters' },
 ];
 

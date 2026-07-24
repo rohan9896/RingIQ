@@ -28,7 +28,7 @@ const steps = [
     number: '02',
     icon: Tags,
     title: 'Select business category',
-    detail: 'Start with a real-estate workflow shaped to the business context.',
+    detail: 'Shape the workspace and knowledge prompts around the tenant’s business context.',
   },
   {
     number: '03',

@@ -149,13 +149,13 @@ export default function LeadsSlide() {
             <div className="rounded-xl border border-border-subtle bg-bg-base/45 p-4">
               <p className="font-body text-xs font-semibold tracking-[0.14em] text-text-muted">OPTIONAL CONTEXT</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {['Project', 'Budget', 'Locality', 'Property type'].map((field) => (
+                {['Product', 'Budget', 'Location', 'Timeline'].map((field) => (
                   <span key={field} className="rounded-lg border border-border-default/70 bg-bg-card/60 px-2.5 py-2 font-body text-xs text-text-secondary">
                     {field}
                   </span>
                 ))}
               </div>
-              <p className="mt-3 font-body text-xs leading-relaxed text-text-muted">Real-estate attributes travel with the lead into every agent interaction.</p>
+              <p className="mt-3 font-body text-xs leading-relaxed text-text-muted">Category-specific attributes travel with the lead into every agent interaction.</p>
             </div>
           </div>
 
