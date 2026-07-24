@@ -46,7 +46,7 @@ const painPoints = [
 
 export default function ProblemSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="02-problem">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-40 top-1/4 h-[30rem] w-[30rem] rounded-full bg-primary-500/20 blur-[120px]" />
         <div className="absolute -right-32 -top-36 h-[34rem] w-[34rem] rounded-full bg-accent-500/10 blur-[130px]" />
@@ -82,29 +82,29 @@ export default function ProblemSlide() {
         <motion.h1
           variants={reveal}
           transition={{ duration: 0.55 }}
-          className="font-display text-[3.8rem] font-semibold leading-[0.95] tracking-[-0.045em] text-text-primary"
+          className="mobile-title font-display text-[3.8rem] font-semibold leading-[0.95] tracking-[-0.045em] text-text-primary"
         >
           The first-touch <span className="text-primary-300">bottleneck</span>
         </motion.h1>
         <motion.p
           variants={reveal}
           transition={{ duration: 0.5 }}
-          className="mt-4 font-body text-xl text-text-secondary"
+          className="mobile-subtitle mt-4 font-body text-xl text-text-secondary"
         >
           Lead volume grows faster than the team&apos;s ability to respond.
         </motion.p>
       </motion.header>
 
-      <div className="slide-content relative z-10 grid grid-cols-[1.65fr_0.85fr] grid-rows-[1fr_auto] gap-5">
+      <div className="slide-content mobile-stack relative z-10 grid grid-cols-[1.65fr_0.85fr] grid-rows-[1fr_auto] gap-5">
         <motion.section
-          className="glass relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-6"
+          className="mobile-card glass relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-6"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18, duration: 0.6 }}
           aria-label="Lead handling bottleneck flow"
         >
           <div className="absolute left-1/3 top-0 h-full w-1/3 bg-primary-500/10 blur-3xl" aria-hidden="true" />
-          <div className="relative flex items-center justify-between">
+          <div className="mobile-status relative flex items-center justify-between">
             <p className="font-body text-xs font-semibold tracking-[0.18em] text-text-muted">WHERE CAPACITY BREAKS</p>
             <div className="flex items-center gap-2 font-body text-xs text-text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-primary-300" />
@@ -112,11 +112,11 @@ export default function ProblemSlide() {
             </div>
           </div>
 
-          <div className="relative mt-5 grid flex-1 grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3">
+          <div className="mobile-flow relative mt-5 grid flex-1 grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3">
             {flow.map(({ icon: Icon, eyebrow, title, detail, emphasis }, index) => (
               <React.Fragment key={title}>
                 <motion.div
-                  className={`relative flex min-h-48 flex-col rounded-2xl border p-5 backdrop-blur-md ${
+                  className={`mobile-card relative flex min-h-48 flex-col rounded-2xl border p-5 backdrop-blur-md ${
                     emphasis
                       ? 'border-primary-300/40 bg-primary-500/20 shadow-2xl'
                       : 'border-border-default/70 bg-bg-card/60'
@@ -144,7 +144,7 @@ export default function ProblemSlide() {
 
                 {index < flow.length - 1 && (
                   <motion.div
-                    className="relative flex w-8 items-center justify-center"
+                    className="mobile-flow-connector relative flex w-8 items-center justify-center"
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.5 + index * 0.18, duration: 0.4 }}
@@ -165,7 +165,7 @@ export default function ProblemSlide() {
         </motion.section>
 
         <motion.aside
-          className="glass flex flex-col rounded-2xl p-6"
+          className="mobile-card glass flex flex-col rounded-2xl p-6"
           initial="hidden"
           animate="show"
           transition={{ delayChildren: 0.35, staggerChildren: 0.12 }}
@@ -199,13 +199,13 @@ export default function ProblemSlide() {
         </motion.aside>
 
         <motion.section
-          className="col-span-2 flex items-center justify-between gap-8 rounded-2xl border border-primary-300/30 bg-primary-500/20 px-6 py-4 backdrop-blur-xl"
+          className="mobile-card mobile-status col-span-2 flex items-center justify-between gap-8 rounded-2xl border border-primary-300/30 bg-primary-500/20 px-6 py-4 backdrop-blur-xl"
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.72, duration: 0.55 }}
           aria-label="Product opportunity"
         >
-          <div className="flex min-w-0 items-center gap-4">
+          <div className="mobile-status flex min-w-0 items-center gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary-300/30 bg-primary-500/20">
               <Sparkles className="h-5 w-5 text-primary-200" />
             </div>

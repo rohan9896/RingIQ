@@ -44,7 +44,7 @@ const rise = {
 
 export default function KnowledgeSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="05-knowledge">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-40 -top-24 h-[34rem] w-[34rem] rounded-full bg-primary-500/18 blur-[120px]" />
         <div className="absolute -right-32 top-[18%] h-[31rem] w-[31rem] rounded-full bg-accent-500/14 blur-[120px]" />
@@ -77,23 +77,23 @@ export default function KnowledgeSlide() {
           <span className="font-body text-xs font-semibold tracking-[0.22em] text-primary-300">KNOWLEDGE SYSTEM</span>
           <span className="h-px w-20 bg-gradient-to-r from-primary-400/60 to-transparent" />
         </div>
-        <h1 className="max-w-[71rem] font-display text-[3.3rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary">
+        <h1 className="mobile-title max-w-[71rem] font-display text-[3.3rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary">
           Private knowledge becomes the agent&apos;s{' '}
           <span className="text-primary-300">operating context</span>
         </h1>
-        <p className="mt-3 font-body text-lg text-text-secondary">
+        <p className="mobile-subtitle mt-3 font-body text-lg text-text-secondary">
           Curated tenant truth is published once, then pinned into the production call that needs it.
         </p>
       </motion.header>
 
       <div className="slide-content relative z-10 flex min-h-0 flex-col justify-center">
         <motion.div
-          className="grid grid-cols-[0.88fr_0.58fr_1.12fr] items-stretch gap-7"
+          className="mobile-flow grid grid-cols-[0.88fr_0.58fr_1.12fr] items-stretch gap-7"
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.13, delayChildren: 0.12 }}
         >
-          <motion.section variants={rise} transition={{ duration: 0.48 }} className="flex min-w-0 flex-col">
+          <motion.section variants={rise} transition={{ duration: 0.48 }} className="mobile-card flex min-w-0 flex-col">
             <div className="mb-3 flex items-center justify-between">
               <p className="font-body text-xs font-semibold tracking-[0.18em] text-text-muted">TENANT INPUTS</p>
               <span className="rounded-full border border-border-default/70 bg-bg-card/60 px-2.5 py-1 font-body text-[0.62rem] tracking-[0.12em] text-text-secondary">PRIVATE</span>
@@ -102,7 +102,7 @@ export default function KnowledgeSlide() {
               {inputs.map(({ icon: Icon, title, detail }, index) => (
                 <motion.div
                   key={title}
-                  className="group relative flex items-center gap-4 rounded-xl border border-border-default/70 bg-bg-card/65 px-4 py-3.5 backdrop-blur-md"
+                  className="mobile-card group relative flex items-center gap-4 rounded-xl border border-border-default/70 bg-bg-card/65 px-4 py-3.5 backdrop-blur-md"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.25 + index * 0.1, duration: 0.42 }}
@@ -113,7 +113,7 @@ export default function KnowledgeSlide() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-display text-base font-semibold text-text-primary">{title}</p>
-                    <p className="mt-0.5 truncate font-body text-xs text-text-muted">{detail}</p>
+                    <p className="mobile-wrap mt-0.5 truncate font-body text-xs text-text-muted">{detail}</p>
                   </div>
                   <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-primary-300/70" />
                 </motion.div>
@@ -124,12 +124,12 @@ export default function KnowledgeSlide() {
           <motion.section
             variants={rise}
             transition={{ duration: 0.55, delay: 0.12 }}
-            className="relative flex min-w-0 items-center justify-center"
+            className="mobile-card mobile-visual relative flex min-w-0 items-center justify-center"
             aria-label="Publish and pin active knowledge base"
           >
-            <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-primary-400/20 via-primary-300/70 to-primary-400/20" />
+            <div className="mobile-flow-connector absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-primary-400/20 via-primary-300/70 to-primary-400/20" />
             <motion.div
-              className="relative z-10 w-full rounded-2xl border border-primary-300/40 bg-bg-card/80 p-5 text-center shadow-2xl backdrop-blur-xl"
+              className="mobile-card relative z-10 w-full rounded-2xl border border-primary-300/40 bg-bg-card/80 p-5 text-center shadow-2xl backdrop-blur-xl"
               animate={{ boxShadow: ['0 0 0 0 currentColor', '0 0 0 12px transparent'] }}
               transition={{ duration: 2.5, repeat: Infinity, ease: 'easeOut' }}
             >
@@ -151,7 +151,7 @@ export default function KnowledgeSlide() {
             </motion.div>
           </motion.section>
 
-          <motion.section variants={rise} transition={{ duration: 0.55, delay: 0.22 }} className="min-w-0">
+          <motion.section variants={rise} transition={{ duration: 0.55, delay: 0.22 }} className="mobile-card min-w-0">
             <div className="mb-3 flex items-center justify-between">
               <p className="font-body text-xs font-semibold tracking-[0.18em] text-text-muted">SAFE CONVERSATION CONTEXT</p>
               <div className="flex items-center gap-1.5 font-body text-[0.62rem] font-semibold tracking-[0.12em] text-primary-300">
@@ -159,7 +159,7 @@ export default function KnowledgeSlide() {
                 CALL-BOUND
               </div>
             </div>
-            <div className="relative overflow-hidden rounded-2xl border border-primary-300/35 bg-bg-card/70 p-5 backdrop-blur-xl">
+            <div className="mobile-card relative overflow-hidden rounded-2xl border border-primary-300/35 bg-bg-card/70 p-5 backdrop-blur-xl">
               <div className="absolute -right-14 -top-14 h-40 w-40 rounded-full bg-primary-500/15 blur-3xl" />
               <div className="relative flex items-start justify-between gap-5">
                 <div>
@@ -199,13 +199,13 @@ export default function KnowledgeSlide() {
         </motion.div>
 
         <motion.div
-          className="mt-6 grid grid-cols-[1fr_1fr_1fr_0.92fr] gap-3"
+          className="mobile-single-grid mt-6 grid grid-cols-[1fr_1fr_1fr_0.92fr] gap-3"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.82, duration: 0.48 }}
         >
           {guardrails.map(({ icon: Icon, title, detail }) => (
-            <div key={title} className="flex min-w-0 items-start gap-3 rounded-xl border border-border-default/60 bg-bg-card/50 px-3.5 py-3 backdrop-blur-md">
+            <div key={title} className="mobile-card flex min-w-0 items-start gap-3 rounded-xl border border-border-default/60 bg-bg-card/50 px-3.5 py-3 backdrop-blur-md">
               <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary-300" />
               <div className="min-w-0">
                 <p className="font-display text-xs font-semibold text-text-primary">{title}</p>
@@ -213,7 +213,7 @@ export default function KnowledgeSlide() {
               </div>
             </div>
           ))}
-          <div className="flex min-w-0 items-start gap-3 rounded-xl border border-dashed border-primary-400/35 bg-primary-500/10 px-3.5 py-3">
+          <div className="mobile-card flex min-w-0 items-start gap-3 rounded-xl border border-dashed border-primary-400/35 bg-primary-500/10 px-3.5 py-3">
             <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary-300" />
             <div className="min-w-0">
               <p className="font-body text-[0.58rem] font-semibold tracking-[0.14em] text-primary-300">FUTURE LOOP</p>

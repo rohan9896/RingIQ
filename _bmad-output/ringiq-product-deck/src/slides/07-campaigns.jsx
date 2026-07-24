@@ -56,7 +56,7 @@ const totals = [
 
 export default function CampaignsSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="07-campaigns">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-36 -top-28 h-[32rem] w-[32rem] rounded-full bg-primary-500/20 blur-[120px]" />
         <div className="absolute -right-32 top-20 h-[30rem] w-[30rem] rounded-full bg-accent-500/10 blur-[125px]" />
@@ -94,7 +94,7 @@ export default function CampaignsSlide() {
         <motion.h1
           variants={reveal}
           transition={{ duration: 0.5 }}
-          className="font-display text-[3.15rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary"
+          className="mobile-title font-display text-[3.15rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary"
         >
           Campaign control without <span className="text-primary-300">operational guesswork</span>
         </motion.h1>
@@ -102,13 +102,13 @@ export default function CampaignsSlide() {
 
       <div className="slide-content relative z-10 flex flex-col gap-5">
         <motion.section
-          className="glass relative overflow-hidden rounded-2xl border border-border-default/70 px-6 py-5"
+          className="mobile-card glass relative overflow-hidden rounded-2xl border border-border-default/70 px-6 py-5"
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.09, delayChildren: 0.15 }}
           aria-label="Campaign lifecycle control rail"
         >
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mobile-stack mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Activity className="h-[1.125rem] w-[1.125rem] text-primary-300" />
               <h2 className="font-display text-lg font-semibold text-text-primary">Lifecycle control rail</h2>
@@ -118,10 +118,10 @@ export default function CampaignsSlide() {
             </span>
           </div>
 
-          <div className="relative grid grid-cols-5 gap-3">
-            <div className="absolute left-[9%] right-[9%] top-5 h-px bg-border-default" />
+          <div className="mobile-timeline relative grid grid-cols-5 gap-3">
+            <div className="mobile-flow-connector absolute left-[9%] right-[9%] top-5 h-px bg-border-default" />
             <motion.div
-              className="absolute left-[9%] top-5 h-px bg-primary-300"
+              className="mobile-flow-connector absolute left-[9%] top-5 h-px bg-primary-300"
               initial={{ width: 0 }}
               animate={{ width: '41%' }}
               transition={{ duration: 1, delay: 0.35, ease: 'easeOut' }}
@@ -152,9 +152,9 @@ export default function CampaignsSlide() {
           </div>
         </motion.section>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[1.3fr_0.7fr] gap-5">
+        <div className="mobile-stack grid min-h-0 flex-1 grid-cols-[1.3fr_0.7fr] gap-5">
           <motion.section
-            className="glass rounded-2xl border border-border-default/70 p-5"
+            className="mobile-card glass rounded-2xl border border-border-default/70 p-5"
             initial="hidden"
             animate="show"
             transition={{ staggerChildren: 0.1, delayChildren: 0.3 }}
@@ -167,13 +167,13 @@ export default function CampaignsSlide() {
               </h2>
             </motion.div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="mobile-single-grid grid grid-cols-3 gap-3">
               {operationGroups.map(({ icon: Icon, title, detail }) => (
                 <motion.article
                   key={title}
                   variants={reveal}
                   transition={{ duration: 0.45 }}
-                  className="rounded-xl border border-border-subtle bg-bg-card/55 p-4 backdrop-blur-md"
+                  className="mobile-card rounded-xl border border-border-subtle bg-bg-card/55 p-4 backdrop-blur-md"
                   whileHover={{ y: -3 }}
                 >
                   <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500/15">
@@ -192,7 +192,7 @@ export default function CampaignsSlide() {
           </motion.section>
 
           <motion.aside
-            className="rounded-2xl border border-primary-300/25 bg-bg-card/70 p-5 backdrop-blur-xl"
+            className="mobile-card rounded-2xl border border-primary-300/25 bg-bg-card/70 p-5 backdrop-blur-xl"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.55, delay: 0.45 }}
@@ -206,7 +206,7 @@ export default function CampaignsSlide() {
               <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary-300" />
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2.5">
+            <div className="mobile-compact-grid mt-4 grid grid-cols-2 gap-2.5">
               {totals.map(({ value, label, warning }) => (
                 <div
                   key={label}

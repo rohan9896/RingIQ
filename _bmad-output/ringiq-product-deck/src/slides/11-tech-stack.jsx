@@ -29,7 +29,7 @@ const voiceServices = [
 
 export default function TechStackSlide() {
   return (
-    <div className="slide-page">
+    <div className="slide-page" data-slide="11-tech-stack">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-36 -top-40 h-[32rem] w-[32rem] rounded-full bg-primary-500/20 blur-[120px]" />
         <div className="absolute -right-28 top-8 h-[30rem] w-[30rem] rounded-full bg-accent-500/10 blur-[125px]" />
@@ -49,16 +49,16 @@ export default function TechStackSlide() {
           </span>
           <span className="h-px w-14 bg-gradient-to-r from-primary-400/60 to-transparent" />
         </motion.div>
-        <motion.div variants={reveal} className="flex items-end justify-between gap-8">
+        <motion.div variants={reveal} className="flex items-end justify-between gap-8 mobile-stack">
           <div>
-            <h1 className="font-display text-[3.05rem] font-semibold leading-none tracking-[-0.04em] text-text-primary">
+            <h1 className="font-display text-[3.05rem] font-semibold leading-none tracking-[-0.04em] text-text-primary mobile-title">
               The stack behind <span className="text-primary-300">RingIQ</span>
             </h1>
-            <p className="mt-2.5 font-body text-base text-text-secondary">
+            <p className="mt-2.5 font-body text-base text-text-secondary mobile-subtitle">
               Product workflows, durable execution, and real-time voice—kept in distinct lanes.
             </p>
           </div>
-          <div className="mb-0.5 flex shrink-0 items-center gap-2 rounded-full border border-border-default bg-bg-card/65 px-3 py-2 font-body text-xs text-text-secondary backdrop-blur-md">
+          <div className="mb-0.5 flex shrink-0 items-center gap-2 rounded-full border border-border-default bg-bg-card/65 px-3 py-2 font-body text-xs text-text-secondary backdrop-blur-md mobile-wrap">
             <Fingerprint className="h-4 w-4 text-primary-300" />
             Clerk auth + organizations at the identity edge
           </div>
@@ -67,18 +67,18 @@ export default function TechStackSlide() {
 
       <div className="slide-content relative z-10 flex min-h-0 flex-col gap-3.5">
         <motion.section
-          className="grid grid-cols-[0.9fr_auto_1.05fr_auto_1.12fr] items-stretch gap-2.5"
+          className="grid grid-cols-[0.9fr_auto_1.05fr_auto_1.12fr] items-stretch gap-2.5 mobile-flow"
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.09, delayChildren: 0.15 }}
           aria-label="Product and data deployment lanes"
         >
-          <motion.article variants={reveal} className="glass rounded-2xl border border-border-default/70 p-4">
+          <motion.article variants={reveal} className="glass rounded-2xl border border-border-default/70 p-4 mobile-card">
             <div className="flex items-center justify-between">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-300/30 bg-primary-500/10">
                 <Braces className="h-[1.125rem] w-[1.125rem] text-primary-200" />
               </div>
-              <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-text-muted">EXPERIENCE</span>
+              <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-text-muted mobile-wrap">EXPERIENCE</span>
             </div>
             <h2 className="mt-3 font-display text-lg font-semibold text-text-primary">Next.js + TypeScript</h2>
             <p className="mt-1 font-body text-sm leading-relaxed text-text-secondary">
@@ -89,16 +89,16 @@ export default function TechStackSlide() {
             </div>
           </motion.article>
 
-          <motion.div variants={reveal} className="flex items-center justify-center">
+          <motion.div variants={reveal} className="flex items-center justify-center mobile-flow-connector">
             <ArrowRight className="h-5 w-5 text-primary-300" />
           </motion.div>
 
-          <motion.article variants={reveal} className="rounded-2xl border border-primary-300/30 bg-primary-500/10 p-4 backdrop-blur-xl">
+          <motion.article variants={reveal} className="rounded-2xl border border-primary-300/30 bg-primary-500/10 p-4 backdrop-blur-xl mobile-card">
             <div className="flex items-center justify-between">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-300/30 bg-bg-base/60">
                 <Server className="h-[1.125rem] w-[1.125rem] text-primary-200" />
               </div>
-              <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-primary-300">PRODUCT API</span>
+              <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-primary-300 mobile-wrap">PRODUCT API</span>
             </div>
             <h2 className="mt-3 font-display text-lg font-semibold text-text-primary">FastAPI + Python</h2>
             <p className="mt-1 font-body text-sm leading-relaxed text-text-secondary">
@@ -109,19 +109,19 @@ export default function TechStackSlide() {
             </div>
           </motion.article>
 
-          <motion.div variants={reveal} className="flex items-center justify-center">
+          <motion.div variants={reveal} className="flex items-center justify-center mobile-flow-connector">
             <ArrowRight className="h-5 w-5 text-primary-300" />
           </motion.div>
 
-          <motion.article variants={reveal} className="glass rounded-2xl border border-border-default/70 p-4">
+          <motion.article variants={reveal} className="glass rounded-2xl border border-border-default/70 p-4 mobile-card">
             <div className="flex items-center justify-between">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-300/30 bg-primary-500/10">
                 <Database className="h-[1.125rem] w-[1.125rem] text-primary-200" />
               </div>
-              <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-text-muted">DATA + ASYNC</span>
+              <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-text-muted mobile-wrap">DATA + ASYNC</span>
             </div>
             <h2 className="mt-3 font-display text-lg font-semibold text-text-primary">Heroku Postgres</h2>
-            <div className="mt-2 grid grid-cols-2 gap-2 font-body text-xs leading-relaxed text-text-secondary">
+            <div className="mt-2 grid grid-cols-2 gap-2 font-body text-xs leading-relaxed text-text-secondary mobile-compact-grid">
               <div className="rounded-lg border border-border-subtle bg-bg-base/45 px-2.5 py-2">
                 <span className="font-semibold text-text-primary">pgvector</span><br />tenant-scoped RAG
               </div>
@@ -136,30 +136,30 @@ export default function TechStackSlide() {
         </motion.section>
 
         <motion.section
-          className="grid min-h-0 flex-1 grid-cols-[1.35fr_0.65fr] gap-3.5"
+          className="grid min-h-0 flex-1 grid-cols-[1.35fr_0.65fr] gap-3.5 mobile-stack"
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.1, delayChildren: 0.45 }}
           aria-label="Real-time voice and deployment status"
         >
-          <motion.article variants={reveal} className="relative overflow-hidden rounded-2xl border border-primary-300/30 bg-bg-card/70 p-4 backdrop-blur-xl">
+          <motion.article variants={reveal} className="relative overflow-hidden rounded-2xl border border-primary-300/30 bg-bg-card/70 p-4 backdrop-blur-xl mobile-card">
             <div className="absolute inset-y-0 left-0 w-1 bg-primary-300" />
-            <div className="flex items-center justify-between gap-5">
+            <div className="flex items-center justify-between gap-5 mobile-stack">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary-300/30 bg-primary-500/15">
                   <RadioTower className="h-5 w-5 text-primary-200" />
                 </div>
                 <div>
-                  <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-primary-300">REAL-TIME VOICE</span>
-                  <h2 className="font-display text-xl font-semibold text-text-primary">LiveKit Cloud + Python voice worker</h2>
+                  <span className="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-primary-300 mobile-wrap">REAL-TIME VOICE</span>
+                  <h2 className="font-display text-xl font-semibold text-text-primary mobile-wrap">LiveKit Cloud + Python voice worker</h2>
                 </div>
               </div>
-              <span className="rounded-full border border-border-default bg-bg-base/50 px-3 py-1.5 font-body text-xs text-text-secondary">
+              <span className="rounded-full border border-border-default bg-bg-base/50 px-3 py-1.5 font-body text-xs text-text-secondary mobile-wrap">
                 Worker hosted on Heroku
               </span>
             </div>
 
-            <div className="mt-3.5 grid grid-cols-[auto_1fr] items-center gap-4">
+            <div className="mt-3.5 grid grid-cols-[auto_1fr] items-center gap-4 mobile-stack">
               <div className="flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-base/45 px-3 py-2.5">
                 <Workflow className="h-4 w-4 text-primary-300" />
                 <div>
@@ -167,11 +167,11 @@ export default function TechStackSlide() {
                   <p className="font-body text-xs text-text-muted">LiveKit orchestrates the call room</p>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-2 mobile-compact-grid">
                 {voiceServices.map((service, index) => (
                   <motion.div
                     key={service}
-                    className="flex min-h-[3.5rem] items-center rounded-lg border border-border-subtle bg-bg-elevated/55 px-2.5 font-body text-xs font-medium leading-snug text-text-secondary"
+                    className="flex min-h-[3.5rem] items-center rounded-lg border border-border-subtle bg-bg-elevated/55 px-2.5 font-body text-xs font-medium leading-snug text-text-secondary mobile-card mobile-wrap"
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.63 + index * 0.08 }}
@@ -183,7 +183,7 @@ export default function TechStackSlide() {
             </div>
           </motion.article>
 
-          <motion.aside variants={reveal} className="glass rounded-2xl border border-border-default/70 p-4">
+          <motion.aside variants={reveal} className="glass rounded-2xl border border-border-default/70 p-4 mobile-card mobile-status">
             <div className="flex items-center gap-2.5">
               <Layers3 className="h-4 w-4 text-primary-300" />
               <h2 className="font-display text-base font-semibold text-text-primary">Deployment status</h2>

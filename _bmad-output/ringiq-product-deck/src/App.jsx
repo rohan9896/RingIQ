@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Navigation from './components/Navigation';
 import Slide01 from './slides/01-hero';
 import Slide02 from './slides/02-problem';
@@ -75,6 +75,9 @@ const slideTransition = {
 export default function App() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [direction, setDirection] = useState(0);
+  const stageRef = useRef(null);
+  const touchStartRef = useRef(null);
+  const prefersReducedMotion = useReducedMotion();
 
   const goToSlide = useCallback((index) => {
     setDirection(index > currentSlide ? 1 : -1);
@@ -94,6 +97,48 @@ export default function App() {
       setCurrentSlide(prev => prev - 1);
     }
   }, [currentSlide]);
+
+  const resetCurrentSlideScroll = useCallback(() => {
+    const currentPage = stageRef.current?.querySelector('.slide-page');
+    currentPage?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
+
+  const handleTouchStart = useCallback((event) => {
+    if (event.touches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const target = event.target;
+    if (
+      target instanceof Element
+      && target.closest('button, a, input, textarea, select, [role="button"]')
+    ) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((event) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+
+    if (!start || event.changedTouches.length !== 1) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+
+    if (Math.abs(deltaX) < 50 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) {
+      return;
+    }
+
+    if (deltaX < 0) nextSlide();
+    else prevSlide();
+  }, [nextSlide, prevSlide]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -129,8 +174,16 @@ export default function App() {
   const CurrentSlideComponent = SLIDES[currentSlide];
 
   return (
-    <div className="h-screen w-screen bg-bg-base overflow-hidden relative">
-      <main className="relative h-full w-full z-10">
+    <div className="deck-root h-screen w-screen bg-bg-base overflow-hidden relative">
+      <main
+        ref={stageRef}
+        className="deck-stage relative h-full w-full z-10"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => {
+          touchStartRef.current = null;
+        }}
+      >
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={currentSlide}
@@ -139,7 +192,8 @@ export default function App() {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={slideTransition}
+            transition={prefersReducedMotion ? { duration: 0 } : slideTransition}
+            onAnimationComplete={resetCurrentSlideScroll}
             className="absolute inset-0 h-full w-full"
           >
             <CurrentSlideComponent />

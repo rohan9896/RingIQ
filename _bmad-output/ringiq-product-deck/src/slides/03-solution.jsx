@@ -66,7 +66,7 @@ const item = {
 
 export default function SolutionSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="03-solution">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-36 top-10 h-[30rem] w-[30rem] rounded-full bg-primary-500/15 blur-[115px]" />
         <div className="absolute -right-40 -top-24 h-[36rem] w-[36rem] rounded-full bg-accent-500/15 blur-[125px]" />
@@ -99,30 +99,30 @@ export default function SolutionSlide() {
           <span className="font-body text-xs font-semibold tracking-[0.22em] text-primary-300">THE COMPLETE JOURNEY</span>
           <span className="h-px w-20 bg-gradient-to-r from-primary-400/60 to-transparent" />
         </div>
-        <h1 className="max-w-5xl font-display text-[3.35rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary">
+        <h1 className="mobile-title max-w-5xl font-display text-[3.35rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary">
           One system, from raw lead to{' '}
           <span className="text-primary-300">clear next action</span>
         </h1>
-        <p className="mt-3 max-w-3xl font-body text-lg leading-relaxed text-text-secondary">
+        <p className="mobile-subtitle mt-3 max-w-3xl font-body text-lg leading-relaxed text-text-secondary">
           A continuous operating loop for setting context, reaching prospects, and focusing sales attention.
         </p>
       </motion.header>
 
       <div className="slide-content relative z-10 flex min-h-0 flex-col justify-center">
         <motion.div
-          className="relative grid grid-cols-[repeat(4,minmax(0,1fr))_1.14fr] items-stretch gap-5"
+          className="mobile-flow relative grid grid-cols-[repeat(4,minmax(0,1fr))_1.14fr] items-stretch gap-5"
           variants={container}
           initial="hidden"
           animate="show"
         >
-          <div className="absolute left-[8%] right-[9%] top-[3.55rem] h-px bg-gradient-to-r from-primary-500/20 via-primary-300/70 to-primary-300/30" />
+          <div className="mobile-hide absolute left-[8%] right-[9%] top-[3.55rem] h-px bg-gradient-to-r from-primary-500/20 via-primary-300/70 to-primary-300/30" />
 
           {journey.map(({ number, label, icon: Icon, lines, detailIcon: DetailIcon, endState }, index) => (
             <motion.article
               key={label}
               variants={item}
               transition={{ duration: 0.48, ease: 'easeOut' }}
-              className={`relative flex min-w-0 flex-col rounded-2xl border backdrop-blur-xl ${
+              className={`mobile-card relative flex min-w-0 flex-col rounded-2xl border backdrop-blur-xl ${
                 endState
                   ? 'border-primary-300/45 bg-primary-500/15 shadow-2xl'
                   : 'border-border-default/70 bg-bg-card/65'
@@ -170,7 +170,7 @@ export default function SolutionSlide() {
 
               {index < journey.length - 1 && (
                 <motion.div
-                  className="absolute -right-4 top-[3.05rem] z-20 flex h-8 w-8 items-center justify-center rounded-full border border-primary-400/30 bg-bg-base"
+                  className="mobile-flow-connector absolute -right-4 top-[3.05rem] z-20 flex h-8 w-8 items-center justify-center rounded-full border border-primary-400/30 bg-bg-base"
                   initial={{ opacity: 0, scale: 0.6 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.5 + index * 0.12, duration: 0.3 }}
@@ -183,12 +183,12 @@ export default function SolutionSlide() {
         </motion.div>
 
         <motion.div
-          className="mt-7 flex items-center justify-between gap-6 rounded-xl border border-border-default/60 bg-bg-card/50 px-5 py-3.5 backdrop-blur-md"
+          className="mobile-card mobile-status mt-7 flex items-center justify-between gap-6 rounded-xl border border-border-default/60 bg-bg-card/50 px-5 py-3.5 backdrop-blur-md"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.85, duration: 0.45 }}
         >
-          <div className="flex items-center gap-3">
+          <div className="mobile-status flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500/15">
               <ShieldCheck className="h-5 w-5 text-primary-300" />
             </div>
@@ -197,7 +197,7 @@ export default function SolutionSlide() {
               <p className="font-body text-xs text-text-muted">Each organization&apos;s profile, knowledge, leads, and call context stay logically isolated.</p>
             </div>
           </div>
-          <div className="shrink-0 rounded-full border border-border-default/70 px-3 py-1.5 font-body text-[0.65rem] font-semibold tracking-[0.15em] text-text-secondary">
+          <div className="mobile-wrap shrink-0 rounded-full border border-border-default/70 px-3 py-1.5 font-body text-[0.65rem] font-semibold tracking-[0.15em] text-text-secondary">
             CONTEXT FOLLOWS THE LEAD
           </div>
         </motion.div>

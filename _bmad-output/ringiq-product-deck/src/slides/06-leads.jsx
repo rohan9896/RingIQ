@@ -39,7 +39,7 @@ const workspaceActions = [
 
 export default function LeadsSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="06-leads">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-36 -top-40 h-[32rem] w-[32rem] rounded-full bg-primary-500/20 blur-[120px]" />
         <div className="absolute -right-28 top-1/4 h-[30rem] w-[30rem] rounded-full bg-accent-500/10 blur-[125px]" />
@@ -75,22 +75,22 @@ export default function LeadsSlide() {
         <motion.h1
           variants={reveal}
           transition={{ duration: 0.55 }}
-          className="font-display text-[3.45rem] font-semibold leading-[0.98] tracking-[-0.045em] text-text-primary"
+          className="mobile-title font-display text-[3.45rem] font-semibold leading-[0.98] tracking-[-0.045em] text-text-primary"
         >
           Clean lead data in. <span className="text-primary-300">Actionable context out.</span>
         </motion.h1>
         <motion.p
           variants={reveal}
           transition={{ duration: 0.5 }}
-          className="mt-3 font-body text-lg text-text-secondary"
+          className="mobile-subtitle mt-3 font-body text-lg text-text-secondary"
         >
           Structure every record before it reaches a campaign—or the agent representing your business.
         </motion.p>
       </motion.header>
 
-      <div className="slide-content relative z-10 grid grid-cols-2 gap-5">
+      <div className="mobile-stack slide-content relative z-10 grid grid-cols-2 gap-5">
         <motion.section
-          className="glass relative flex min-w-0 flex-col overflow-hidden rounded-2xl p-5"
+          className="mobile-card glass relative flex min-w-0 flex-col overflow-hidden rounded-2xl p-5"
           initial={{ opacity: 0, x: -24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.18, duration: 0.65, ease: 'easeOut' }}
@@ -107,11 +107,11 @@ export default function LeadsSlide() {
             </div>
           </div>
 
-          <div className="relative mt-4 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+          <div className="mobile-flow relative mt-4 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
             {importSteps.map(({ label, icon: Icon }, index) => (
               <React.Fragment key={label}>
                 <motion.div
-                  className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-3 ${
+                  className={`mobile-card flex min-w-0 items-center justify-center gap-2 rounded-xl border px-3 py-3 ${
                     index === 1
                       ? 'border-primary-300/40 bg-primary-500/20'
                       : 'border-border-default/70 bg-bg-base/50'
@@ -121,15 +121,15 @@ export default function LeadsSlide() {
                   transition={{ delay: 0.34 + index * 0.12, duration: 0.4 }}
                 >
                   <Icon className="h-4 w-4 shrink-0 text-primary-200" />
-                  <span className="truncate font-body text-xs font-semibold text-text-secondary">{label}</span>
+                  <span className="mobile-wrap truncate font-body text-xs font-semibold text-text-secondary">{label}</span>
                 </motion.div>
-                {index < importSteps.length - 1 && <ArrowRight className="h-4 w-4 text-primary-300" />}
+                {index < importSteps.length - 1 && <ArrowRight className="mobile-flow-connector h-4 w-4 text-primary-300" />}
               </React.Fragment>
             ))}
           </div>
 
-          <div className="relative mt-4 grid grid-cols-[1fr_0.92fr] gap-3">
-            <div className="rounded-xl border border-border-subtle bg-bg-base/45 p-4">
+          <div className="mobile-single-grid relative mt-4 grid grid-cols-[1fr_0.92fr] gap-3">
+            <div className="mobile-card rounded-xl border border-border-subtle bg-bg-base/45 p-4">
               <div className="mb-3 flex items-center justify-between">
                 <p className="font-body text-xs font-semibold tracking-[0.14em] text-text-muted">FIELD MAP</p>
                 <span className="flex items-center gap-1 font-body text-xs text-primary-300">
@@ -146,7 +146,7 @@ export default function LeadsSlide() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border-subtle bg-bg-base/45 p-4">
+            <div className="mobile-card rounded-xl border border-border-subtle bg-bg-base/45 p-4">
               <p className="font-body text-xs font-semibold tracking-[0.14em] text-text-muted">OPTIONAL CONTEXT</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {['Product', 'Budget', 'Location', 'Timeline'].map((field) => (
@@ -165,7 +165,7 @@ export default function LeadsSlide() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.45 }}
           >
-            <div className="flex items-center justify-between gap-4">
+            <div className="mobile-stack flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-start gap-3">
                 <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary-200" />
                 <div>
@@ -184,7 +184,7 @@ export default function LeadsSlide() {
         </motion.section>
 
         <motion.section
-          className="glass relative flex min-w-0 flex-col overflow-hidden rounded-2xl p-5"
+          className="mobile-card glass relative flex min-w-0 flex-col overflow-hidden rounded-2xl p-5"
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.26, duration: 0.65, ease: 'easeOut' }}
@@ -204,7 +204,7 @@ export default function LeadsSlide() {
           <div className="relative mt-4 flex items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border-default/70 bg-bg-base/50 px-3 py-2.5">
               <Search className="h-4 w-4 shrink-0 text-text-muted" />
-              <span className="truncate font-body text-sm text-text-muted">Search leads, phone, email…</span>
+              <span className="mobile-wrap truncate font-body text-sm text-text-muted">Search leads, phone, email…</span>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-default/70 bg-bg-base/50">
               <ListFilter className="h-4 w-4 text-primary-200" />
@@ -228,7 +228,7 @@ export default function LeadsSlide() {
               <span className="rounded-full border border-primary-300/30 bg-primary-500/20 px-2.5 py-1 font-body text-[0.65rem] font-semibold tracking-[0.1em] text-primary-200">READY</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 p-4">
+            <div className="mobile-single-grid grid grid-cols-2 gap-4 p-4">
               <div>
                 <p className="font-body text-xs font-semibold tracking-[0.14em] text-text-muted">AGENT CONTEXT</p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -247,7 +247,7 @@ export default function LeadsSlide() {
             </div>
           </motion.div>
 
-          <div className="relative mt-3 grid grid-cols-4 gap-2">
+          <div className="mobile-compact-grid relative mt-3 grid grid-cols-4 gap-2">
             {workspaceActions.map(({ label, icon: Icon }, index) => (
               <motion.div
                 key={label}
@@ -257,7 +257,7 @@ export default function LeadsSlide() {
                 transition={{ delay: 0.62 + index * 0.08, duration: 0.35 }}
               >
                 <Icon className="h-4 w-4 text-primary-200" />
-                <span className="truncate font-body text-xs font-medium text-text-secondary">{label}</span>
+                <span className="mobile-wrap truncate font-body text-xs font-medium text-text-secondary">{label}</span>
               </motion.div>
             ))}
           </div>

@@ -68,7 +68,7 @@ const roadmap = [
 
 export default function PlatformSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="10-platform">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-40 -top-32 h-[34rem] w-[34rem] rounded-full bg-primary-500/20 blur-[125px]" />
         <div className="absolute -right-36 top-8 h-[32rem] w-[32rem] rounded-full bg-accent-500/10 blur-[130px]" />
@@ -106,15 +106,15 @@ export default function PlatformSlide() {
         <motion.h1
           variants={reveal}
           transition={{ duration: 0.5 }}
-          className="max-w-[76rem] font-display text-[3.05rem] font-semibold leading-[1.03] tracking-[-0.04em] text-text-primary"
+          className="max-w-[76rem] font-display text-[3.05rem] font-semibold leading-[1.03] tracking-[-0.04em] text-text-primary mobile-title"
         >
           Built as a platform. Focused on one <span className="text-primary-300">decisive outcome.</span>
         </motion.h1>
       </motion.header>
 
-      <div className="slide-content relative z-10 grid grid-cols-[0.96fr_1.04fr] gap-5">
+      <div className="slide-content relative z-10 grid grid-cols-[0.96fr_1.04fr] gap-5 mobile-stack">
         <motion.section
-          className="glass relative overflow-hidden rounded-2xl border border-border-default/70 p-5"
+          className="glass relative overflow-hidden rounded-2xl border border-border-default/70 p-5 mobile-card"
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.1, delayChildren: 0.15 }}
@@ -141,7 +141,7 @@ export default function PlatformSlide() {
                 key={title}
                 variants={reveal}
                 transition={{ duration: 0.45 }}
-                className="relative grid grid-cols-[2.5rem_1fr] items-center gap-3 rounded-xl border border-border-subtle bg-bg-card/55 px-3.5 py-3 backdrop-blur-md"
+                className="relative grid grid-cols-[2.5rem_1fr] items-center gap-3 rounded-xl border border-border-subtle bg-bg-card/55 px-3.5 py-3 backdrop-blur-md mobile-card"
                 whileHover={{ x: 4 }}
               >
                 <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg border border-primary-300/30 bg-bg-base">
@@ -152,16 +152,16 @@ export default function PlatformSlide() {
                     <span className="font-display text-xs font-semibold tracking-[0.14em] text-primary-300">{number}</span>
                     <h3 className="font-display text-base font-semibold text-text-primary">{title}</h3>
                   </div>
-                  <p className="mt-1 font-body text-sm leading-relaxed text-text-secondary">{detail}</p>
+                  <p className="mt-1 font-body text-sm leading-relaxed text-text-secondary mobile-wrap">{detail}</p>
                 </div>
               </motion.article>
             ))}
           </div>
         </motion.section>
 
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4 mobile-stack">
           <motion.section
-            className="rounded-2xl border border-primary-300/25 bg-bg-card/70 p-5 backdrop-blur-xl"
+            className="rounded-2xl border border-primary-300/25 bg-bg-card/70 p-5 backdrop-blur-xl mobile-card"
             initial="hidden"
             animate="show"
             transition={{ staggerChildren: 0.08, delayChildren: 0.3 }}
@@ -171,12 +171,12 @@ export default function PlatformSlide() {
               <Sparkles className="h-[1.125rem] w-[1.125rem] text-primary-300" />
               <h2 className="font-display text-lg font-semibold text-text-primary">Three compounding advantages</h2>
             </motion.div>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-2.5 mobile-compact-grid">
               {pillars.map(({ icon: Icon, label }) => (
                 <motion.div
                   key={label}
                   variants={reveal}
-                  className="rounded-xl border border-border-subtle bg-bg-base/50 p-3"
+                  className="rounded-xl border border-border-subtle bg-bg-base/50 p-3 mobile-card"
                   whileHover={{ y: -3 }}
                 >
                   <Icon className="h-4 w-4 text-primary-300" />
@@ -187,7 +187,7 @@ export default function PlatformSlide() {
           </motion.section>
 
           <motion.section
-            className="glass rounded-2xl border border-border-default/70 p-5"
+            className="glass rounded-2xl border border-border-default/70 p-5 mobile-card"
             initial="hidden"
             animate="show"
             transition={{ staggerChildren: 0.1, delayChildren: 0.45 }}
@@ -197,25 +197,25 @@ export default function PlatformSlide() {
               <h2 className="font-display text-lg font-semibold text-text-primary">Now → Next → Later</h2>
               <span className="font-body text-xs font-semibold tracking-[0.13em] text-text-muted">ROADMAP</span>
             </motion.div>
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 mobile-timeline">
               {roadmap.map(({ phase, detail }, index) => (
                 <motion.div
                   key={phase}
                   variants={reveal}
-                  className="grid grid-cols-[4.25rem_auto_1fr] items-center gap-2.5 rounded-xl border border-border-subtle bg-bg-card/50 px-3 py-2.5"
+                  className="grid grid-cols-[4.25rem_auto_1fr] items-center gap-2.5 rounded-xl border border-border-subtle bg-bg-card/50 px-3 py-2.5 mobile-card"
                 >
                   <span className={`font-display text-sm font-semibold ${index === 0 ? 'text-primary-200' : 'text-text-secondary'}`}>
                     {phase}
                   </span>
                   <ArrowRight className="h-3.5 w-3.5 text-text-muted" />
-                  <p className="font-body text-sm leading-relaxed text-text-secondary">{detail}</p>
+                  <p className="font-body text-sm leading-relaxed text-text-secondary mobile-wrap">{detail}</p>
                 </motion.div>
               ))}
             </div>
           </motion.section>
 
           <motion.div
-            className="flex items-center justify-between gap-5 rounded-2xl border border-primary-300/30 bg-primary-500/10 px-5 py-4"
+            className="flex items-center justify-between gap-5 rounded-2xl border border-primary-300/30 bg-primary-500/10 px-5 py-4 mobile-stack mobile-card"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.75 }}

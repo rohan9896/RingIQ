@@ -42,7 +42,7 @@ const rise = {
 
 export default function VoiceAiSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="08-voice-ai">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-36 top-8 h-[30rem] w-[30rem] rounded-full bg-primary-500/16 blur-[115px]" />
         <div className="absolute -right-32 -top-20 h-[34rem] w-[34rem] rounded-full bg-accent-500/14 blur-[125px]" />
@@ -75,11 +75,11 @@ export default function VoiceAiSlide() {
           <span className="font-body text-xs font-semibold tracking-[0.22em] text-primary-300">LIVE VOICE EXPERIENCE</span>
           <span className="h-px w-20 bg-gradient-to-r from-primary-400/60 to-transparent" />
         </div>
-        <h1 className="max-w-[68rem] font-display text-[3.3rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary">
+        <h1 className="mobile-title max-w-[68rem] font-display text-[3.3rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary">
           A natural conversation,{' '}
           <span className="text-primary-300">grounded at every turn</span>
         </h1>
-        <p className="mt-3 font-body text-lg text-text-secondary">
+        <p className="mobile-subtitle mt-3 font-body text-lg text-text-secondary">
           RingIQ carries voice, context, and response through one observable real-time loop.
         </p>
       </motion.header>
@@ -92,17 +92,17 @@ export default function VoiceAiSlide() {
           transition={{ staggerChildren: 0.1, delayChildren: 0.12 }}
           aria-label="Live voice processing pipeline"
         >
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mobile-stack mb-3 flex items-center justify-between">
             <p className="font-body text-xs font-semibold tracking-[0.18em] text-text-muted">THE SIGNAL PATH</p>
             <p className="font-body text-[0.68rem] text-text-muted">Listen → understand in context → respond</p>
           </div>
-          <div className="grid grid-cols-[0.86fr_0.86fr_1.08fr_1.3fr_1.15fr_0.78fr] gap-3">
+          <div className="mobile-flow grid grid-cols-[0.86fr_0.86fr_1.08fr_1.3fr_1.15fr_0.78fr] gap-3">
             {pipeline.map(({ icon: Icon, label, detail }, index) => (
               <motion.div
                 key={label}
                 variants={rise}
                 transition={{ duration: 0.42, ease: 'easeOut' }}
-                className={`relative flex min-w-0 items-center gap-3 rounded-xl border px-3.5 py-3 backdrop-blur-md ${
+                className={`mobile-card relative flex min-w-0 items-center gap-3 rounded-xl border px-3.5 py-3 backdrop-blur-md ${
                   index === 3
                     ? 'border-primary-300/40 bg-primary-500/15'
                     : 'border-border-default/65 bg-bg-card/60'
@@ -112,11 +112,11 @@ export default function VoiceAiSlide() {
                   <Icon className="h-4 w-4 text-primary-300" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-display text-xs font-semibold text-text-primary">{label}</p>
-                  <p className="mt-0.5 truncate font-body text-[0.62rem] text-text-muted">{detail}</p>
+                  <p className="mobile-wrap truncate font-display text-xs font-semibold text-text-primary">{label}</p>
+                  <p className="mobile-wrap mt-0.5 truncate font-body text-[0.62rem] text-text-muted">{detail}</p>
                 </div>
                 {index < pipeline.length - 1 && (
-                  <div className="absolute -right-2.5 top-1/2 z-20 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-primary-400/30 bg-bg-base">
+                  <div className="mobile-flow-connector absolute -right-2.5 top-1/2 z-20 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-primary-400/30 bg-bg-base">
                     <ArrowRight className="h-3 w-3 text-primary-300" />
                   </div>
                 )}
@@ -125,16 +125,16 @@ export default function VoiceAiSlide() {
           </div>
         </motion.section>
 
-        <div className="mt-6 grid grid-cols-[1fr_0.72fr_1fr] items-center gap-8">
+        <div className="mobile-stack mt-6 grid grid-cols-[1fr_0.72fr_1fr] items-center gap-8">
           <motion.section
-            className="space-y-2.5"
+            className="mobile-card space-y-2.5"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.48, duration: 0.5 }}
           >
             <p className="mb-3 font-body text-xs font-semibold tracking-[0.18em] text-text-muted">EXPERIENCE CAPABILITIES</p>
             {capabilities.map(({ icon: Icon, title, detail }) => (
-              <div key={title} className="flex items-center gap-3 rounded-xl border border-border-default/60 bg-bg-card/55 px-3.5 py-2.5 backdrop-blur-md">
+              <div key={title} className="mobile-card flex items-center gap-3 rounded-xl border border-border-default/60 bg-bg-card/55 px-3.5 py-2.5 backdrop-blur-md">
                 <Icon className="h-4 w-4 shrink-0 text-primary-300" />
                 <div className="min-w-0">
                   <p className="font-display text-sm font-semibold text-text-primary">{title}</p>
@@ -145,7 +145,7 @@ export default function VoiceAiSlide() {
           </motion.section>
 
           <motion.section
-            className="relative flex items-center justify-center"
+            className="mobile-card mobile-visual relative flex items-center justify-center"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.38, duration: 0.7, ease: 'easeOut' }}
@@ -189,7 +189,7 @@ export default function VoiceAiSlide() {
           </motion.section>
 
           <motion.section
-            className="rounded-2xl border border-border-default/65 bg-bg-card/60 p-4 backdrop-blur-xl"
+            className="mobile-card rounded-2xl border border-border-default/65 bg-bg-card/60 p-4 backdrop-blur-xl"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.52, duration: 0.5 }}
@@ -225,7 +225,7 @@ export default function VoiceAiSlide() {
         </div>
 
         <motion.div
-          className="mt-6 grid grid-cols-[0.92fr_1.08fr] overflow-hidden rounded-xl border border-border-default/65 bg-bg-card/50 backdrop-blur-md"
+          className="mobile-stack mobile-status mt-6 grid grid-cols-[0.92fr_1.08fr] overflow-hidden rounded-xl border border-border-default/65 bg-bg-card/50 backdrop-blur-md"
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.9, duration: 0.45 }}

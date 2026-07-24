@@ -24,7 +24,7 @@ const waveform = [34, 56, 76, 44, 88, 64, 100, 72, 48, 84, 58, 38, 68, 92, 62, 4
 
 export default function HeroSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="01-hero">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-32 -top-40 h-[34rem] w-[34rem] rounded-full bg-primary-500/20 blur-[110px]" />
         <div className="absolute -right-28 top-12 h-[32rem] w-[32rem] rounded-full bg-accent-500/15 blur-[120px]" />
@@ -47,7 +47,7 @@ export default function HeroSlide() {
         </div>
       </div>
 
-      <div className="slide-content relative z-10 grid grid-cols-[1.08fr_0.92fr] items-center gap-14">
+      <div className="slide-content mobile-stack relative z-10 grid grid-cols-[1.08fr_0.92fr] items-center gap-14">
         <motion.section
           className="flex min-w-0 flex-col justify-center"
           initial="hidden"
@@ -65,7 +65,7 @@ export default function HeroSlide() {
           <motion.h1
             variants={reveal}
             transition={{ duration: 0.55 }}
-            className="font-display text-[5.9rem] font-semibold leading-[0.88] tracking-[-0.055em] text-text-primary"
+            className="mobile-title mobile-hero-title font-display text-[5.9rem] font-semibold leading-[0.88] tracking-[-0.055em] text-text-primary"
           >
             Ring<span className="text-primary-300">IQ</span>
           </motion.h1>
@@ -73,7 +73,7 @@ export default function HeroSlide() {
           <motion.h2
             variants={reveal}
             transition={{ duration: 0.55 }}
-            className="mt-6 max-w-3xl font-display text-[2.05rem] font-medium leading-[1.12] tracking-[-0.025em] text-text-primary"
+            className="mobile-subtitle mt-6 max-w-3xl font-display text-[2.05rem] font-medium leading-[1.12] tracking-[-0.025em] text-text-primary"
           >
             AI voice qualification that turns lead volume into{' '}
             <span className="text-primary-300">sales focus.</span>
@@ -90,7 +90,7 @@ export default function HeroSlide() {
           <motion.div
             variants={reveal}
             transition={{ duration: 0.5 }}
-            className="mt-8 flex flex-wrap gap-2.5"
+            className="mobile-chip-row mt-8 flex flex-wrap gap-2.5"
           >
             {tags.map(({ icon: Icon, label }) => (
               <div
@@ -105,13 +105,13 @@ export default function HeroSlide() {
         </motion.section>
 
         <motion.section
-          className="relative flex items-center justify-center"
+          className="mobile-visual relative flex items-center justify-center"
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
           aria-label="AI call signal prioritizing a qualified lead"
         >
-          <div className="relative aspect-square w-full max-w-[38rem]">
+          <div className="mobile-visual relative aspect-square w-full max-w-[38rem]">
             <motion.div
               className="absolute inset-[7%] rounded-full border border-primary-400/20"
               animate={{ rotate: 360 }}
@@ -140,7 +140,7 @@ export default function HeroSlide() {
               </div>
             </div>
 
-            <div className="glass absolute left-0 top-[14%] w-52 rounded-2xl p-4">
+            <div className="mobile-card glass absolute left-0 top-[14%] w-52 rounded-2xl p-4">
               <div className="mb-3 flex items-center justify-between font-body text-xs font-semibold tracking-[0.14em] text-text-muted">
                 <span>LIVE VOICE SIGNAL</span>
                 <span className="h-2 w-2 rounded-full bg-primary-300" />
@@ -159,7 +159,7 @@ export default function HeroSlide() {
             </div>
 
             <motion.div
-              className="glass absolute bottom-[8%] right-0 w-60 rounded-2xl p-4"
+              className="mobile-card glass absolute bottom-[8%] right-0 w-60 rounded-2xl p-4"
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.7, duration: 0.5 }}

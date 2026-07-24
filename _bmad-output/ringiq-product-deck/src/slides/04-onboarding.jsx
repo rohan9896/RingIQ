@@ -52,7 +52,7 @@ const readiness = [
 
 export default function OnboardingSlide() {
   return (
-    <div className="slide-page relative bg-bg-base text-text-primary">
+    <div className="slide-page relative bg-bg-base text-text-primary" data-slide="04-onboarding">
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -left-40 top-20 h-[30rem] w-[30rem] rounded-full bg-primary-500/20 blur-[120px]" />
         <div className="absolute -right-28 -top-24 h-[34rem] w-[34rem] rounded-full bg-accent-500/10 blur-[130px]" />
@@ -90,22 +90,22 @@ export default function OnboardingSlide() {
         <motion.h1
           variants={reveal}
           transition={{ duration: 0.5 }}
-          className="font-display text-[3.25rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary"
+          className="mobile-title font-display text-[3.25rem] font-semibold leading-[1.02] tracking-[-0.04em] text-text-primary"
         >
           Guided from workspace to <span className="text-primary-300">first call</span>
         </motion.h1>
         <motion.p
           variants={reveal}
           transition={{ duration: 0.45 }}
-          className="mt-3 font-body text-lg text-text-secondary"
+          className="mobile-subtitle mt-3 font-body text-lg text-text-secondary"
         >
           Readiness is a product state—not a setup document.
         </motion.p>
       </motion.header>
 
-      <div className="slide-content relative z-10 grid grid-cols-[1.42fr_0.58fr] gap-7">
+      <div className="slide-content mobile-stack relative z-10 grid grid-cols-[1.42fr_0.58fr] gap-7">
         <motion.section
-          className="glass relative overflow-hidden rounded-2xl border border-border-default/70 px-7 py-6"
+          className="mobile-card mobile-timeline glass relative overflow-hidden rounded-2xl border border-border-default/70 px-7 py-6"
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.12, delayChildren: 0.15 }}
@@ -125,7 +125,7 @@ export default function OnboardingSlide() {
                 key={number}
                 variants={reveal}
                 transition={{ duration: 0.45 }}
-                className="group grid grid-cols-[3.25rem_1fr_auto] items-center gap-5 rounded-xl border border-border-subtle bg-bg-card/50 px-4 py-3.5 backdrop-blur-md"
+                className="mobile-card mobile-single-grid group grid grid-cols-[3.25rem_1fr_auto] items-center gap-5 rounded-xl border border-border-subtle bg-bg-card/50 px-4 py-3.5 backdrop-blur-md"
                 whileHover={{ x: 5 }}
               >
                 <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-primary-300/40 bg-bg-base text-primary-200 shadow-lg">
@@ -153,16 +153,16 @@ export default function OnboardingSlide() {
         </motion.section>
 
         <motion.aside
-          className="flex min-w-0 flex-col gap-4"
+          className="mobile-stack flex min-w-0 flex-col gap-4"
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.12, delayChildren: 0.35 }}
         >
           <motion.div
             variants={reveal}
-            className="glass rounded-2xl border border-primary-300/25 p-5"
+            className="mobile-card glass rounded-2xl border border-primary-300/25 p-5"
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="mobile-status flex items-center justify-between gap-3">
               <div>
                 <p className="font-body text-xs font-semibold tracking-[0.17em] text-primary-300">PRODUCT STATE</p>
                 <h2 className="mt-1 font-display text-2xl font-semibold tracking-[-0.025em] text-text-primary">
@@ -192,7 +192,7 @@ export default function OnboardingSlide() {
 
           <motion.div
             variants={reveal}
-            className="rounded-2xl border border-border-default/70 bg-bg-card/65 p-5 backdrop-blur-md"
+            className="mobile-card rounded-2xl border border-border-default/70 bg-bg-card/65 p-5 backdrop-blur-md"
           >
             <div className="flex items-start gap-3">
               <div className="rounded-lg bg-accent-500/10 p-2.5">
