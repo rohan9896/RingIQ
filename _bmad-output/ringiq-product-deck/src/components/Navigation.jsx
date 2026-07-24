@@ -21,7 +21,7 @@ export default function Navigation({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.5 }}
-        className="deck-navigation fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+        className="deck-navigation fixed inset-x-0 bottom-6 z-50 mx-auto w-fit"
       >
         <div className="deck-navigation__bar flex items-center gap-2 px-2 py-2 rounded-2xl bg-bg-card/60 backdrop-blur-xl border border-border-subtle shadow-2xl shadow-black/20">
           {/* Menu Toggle */}
@@ -103,7 +103,7 @@ export default function Navigation({
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               role="dialog"
               aria-label="Choose a slide"
-              className="deck-navigation__menu fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-80 max-h-96 overflow-y-auto"
+              className="deck-navigation__menu fixed inset-x-0 bottom-24 z-50 mx-auto w-80 max-h-96 overflow-y-auto"
             >
               <div className="p-2 rounded-2xl bg-bg-card/95 backdrop-blur-xl border border-border-subtle shadow-2xl">
                 {navItems.map((item, index) => (
