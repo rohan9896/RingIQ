@@ -6,8 +6,6 @@ RingIQ is a B2B AI voice platform that automatically calls, qualifies, and prior
 
 [![Watch the RingIQ product demo](https://img.youtube.com/vi/T8kWorPbZrU/maxresdefault.jpg)](https://youtu.be/T8kWorPbZrU)
 
-> These credentials are for the staging demo only.
-
 ## Voice pipeline
 
 The current implementation connects the outbound calling pipeline without requiring a database for the `/demo/calls` flow:
